@@ -1,0 +1,148 @@
+CBS Radio Mystery Theater
+
+Broadcast Log for 1982
+
+This log contains the correct numbering for the 1982 season.
+
+"SHOW #" is the number of that unique broadcast not accountijng for reruns. 
+The numbering starts at "1" and each unique episode gets its own number.
+
+"OTRW #" is the numbering system that OTRWalter uses. His numbering system 
+accounts for the original broadcasts and the reruns. Each broadcast, 
+original and rerun, gets its own unique number. This log currently only 
+lists the original broadcasts but will eventually have the reruns listed 
+as well.
+
+Ken Long - kenglong@thelongtrek.com
+May 27, 2007
+
+
+Show #  OTRW #  Date	Episode Title
+------  ------  ------  ------------------------------------------------
+1273	2711	820104	The Acquisition
+1274	2715	820108	The Last Orbit
+1275	2716	820111	Les Miserables, Part One: The Thief and the Bishop
+1276	2717	820112	Les Miserables, Part Two: The Lawless and the Law
+1277	2718	820113	Les Miserables, Part Three: No Escape
+1278	2719	820114	Les Miserables, Part Four: Fear, Love and Death
+1279	2720	820115	Les Miserables, Part Five: The Final Chapter
+1280	2722	820119	The Real World
+1281	2724	820121	Gate 27
+1282	2727	820126	To Be an Empress
+1283	2729	820128	Dickens of Scotland Yard
+1284	2731	820201	The Good Ship Aud
+1285	2733	820203	The Mysterious Slumber
+1286	2735	820205	The Cantankerous Ghost
+1287	2736	820208	Change of Heart
+1288	2738	820210	Sand Castle - (Tammy Grimes)
+1289	2740	820212	The Bargain - (Tammy Grimes)
+1290	2741	820215	The .44 Connection - (Tammy Grimes)
+1291	2743	820217	The Washington Kidnap - (Tammy Grimes)
+1292	2745	820219	The Victim - (Tammy Grimes)
+1293	2746	820222	Nickels and Dimes - (Tammy Grimes)
+1294	2748	820224	Invaders from Atlantis - (Tammy Grimes)
+1295	2750	820226	The Blood Red Ink - (Tammy Grimes)
+1296	2751	820301	The Blue Sedan - (Tammy Grimes)
+1297	2753	820303	Death Star - (Tammy Grimes)
+1298	2755	820305	Death at a Distance - (Tammy Grimes)
+1299	2756	820308	First Impressions - (Tammy Grimes)
+1300	2758	820310	The Heart of Boadicea - (Tammy Grimes)
+1301	2760	820312	The New Man at the Yard - (Tammy Grimes)
+1302	2761	820315	The Face of the Waters - (Tammy Grimes)
+1303	2763	820317	Tippecanoe and Tyler, Too - (Tammy Grimes)
+1304	2765	820319	The Magic Stick of Manitu - (Tammy Grimes)
+1305	2766	820322	The Tool Shed - (Tammy Grimes)
+1306	2768	820324	The Old Country - (Tammy Grimes)
+1307	2770	820326	In the Cards - (Tammy Grimes)
+1308	2771	820329	On the Night of the Dead - (Tammy Grimes)
+1309	2773	820331	I Am the Killer - (Tammy Grimes)
+1310	2775	820402	The Naval Treaty - (Tammy Grimes)
+1311	2776	820405	Widow Wonderland - (Tammy Grimes)
+1312	2778	820407	Only a Woman - (Tammy Grimes)
+1313	2780	820409	You Tell Me Your Dream - (Tammy Grimes)
+1314	2781	820412	His Fourth Wife - (Tammy Grimes)
+1315	2783	820414	The Visions of Sir Philip Sidney - (Tammy Grimes)
+1316	2785	820416	Something to Live For - (Tammy Grimes)
+1317	2786	820419	Shelter - (Tammy Grimes)
+1318	2788	820421	The Jataka - (Tammy Grimes)
+1319	2790	820423	The Whimpering Pond - (Tammy Grimes)
+1320	2791	820426	The Hanging Sheriff - (Tammy Grimes)
+1321	2793	820428	The Ghost of Andersonville - (Tammy Grimes)
+1322	2795	820430	The Last Duel - (Tammy Grimes)
+1323	2796	820503	Guilty as Charged - (Tammy Grimes)
+1324	2798	820505	Dreamers and Killers - (Tammy Grimes)
+1325	2800	820507	The Wedding Present - (Tammy Grimes)
+1326	2801	820510	Tourist Trap - (Tammy Grimes)
+1327	2803	820512	The Wound That Would Not Heal - (Tammy Grimes)
+1328	2805	820514	The Hills of Arias - (Tammy Grimes)
+1329	2806	820517	The Imperfect Crime - (Tammy Grimes)
+1330	2808	820519	The Brooch - (Tammy Grimes)
+1331	2810	820521	The 'Different' People - (Tammy Grimes)
+1332	2811	820524	Your Desires, My Guilt - (Tammy Grimes)
+1333	2813	820526	Why Is This Lady Smiling? - (Tammy Grimes)
+1334	2815	820528	The Chess Master - (Tammy Grimes)
+1335	2816	820531	Lady Macbeth at the Zoo - (Tammy Grimes)
+1336	2818	820602	Two Times Dead - (Tammy Grimes)
+1337	2820	820604	My First Rogue - (Tammy Grimes)
+1338	2826	820614	The Woman Who Wanted to Live - (Tammy Grimes)
+1339	2828	820616	A Most Dangerous Animal - (Tammy Grimes)
+1340	2830	820618	The Fifth Man - (Tammy Grimes)
+1341	2831	820621	Universe Hollow - (Tammy Grimes)
+1342	2833	820623	Matching Chairs - (Tammy Grimes)
+1343	2835	820625	Don't Kill Me - (Tammy Grimes)
+1344	2836	820628	Escape to Prison - (Tammy Grimes)
+1345	2838	820630	Killer Crab - (Tammy Grimes)
+1346	2840	820702	Bring Back My Body - (Tammy Grimes)
+1347	2841	820705	The Romance of Mary Oates - (Tammy Grimes)
+1348	2843	820707	Code Word: Caprice - (Tammy Grimes)
+1349	2845	820709	Come Back Next Week - (Tammy Grimes)
+1350	2846	820712	The Hand of Amnesia - (Tammy Grimes)
+1351	2848	820714	The Innocent Murderer - (Tammy Grimes)
+1352	2850	820716	The Great Catherine - (Tammy Grimes)
+1353	2852	820720	Formula Z - The Protector - (Tammy Grimes)
+1354	2854	820722	Yearbook - (Tammy Grimes)
+1355	2857	820727	Adolph and Eva - (Tammy Grimes)
+1356	2859	820729	Mind Over Mind - (Tammy Grimes)
+1357	2862	820803	Redhead - (Tammy Grimes)
+1358	2864	820805	Murder by Decree - (Tammy Grimes)
+1359	2867	820810	A Pair of Green Eyes - (Tammy Grimes)
+1360	2869	820812	The Man with the X-Ray Eyes - (Tammy Grimes)
+1361	2872	820817	Famous Last Words - (Tammy Grimes)
+1362	2874	820819	Eleanora - (Tammy Grimes)
+1363	2877	820824	Funeral Without a Corpse - (Tammy Grimes)
+1364	2879	820826	Barn Burner - (Tammy Grimes)
+1365	2882	820831	How Do You Like Those Apples? - (Tammy Grimes)
+1366	2884	820902	The Rim of Eternity - (Tammy Grimes)
+1367	2887	820907	Scenes from a Murder - (Tammy Grimes)
+1368	2889	820909	The Riddle - (Tammy Grimes)
+1369	2892	820914	The Forbidden House - (Tammy Grimes)
+1370	2894	820916	Two Sisters - (Tammy Grimes)
+1371	2896	820920	The Way Station - (Tammy Grimes)
+1372	2898	820922	Pursuit of a Dream - (Tammy Grimes)
+1373	2900	820924	The Force of Evil - (Tammy Grimes)
+1374	2901	820927	Roll Call of the Dead - (Tammy Grimes)
+1375	2903	820929	The Million Dollar Leg - (Tammy Grimes)
+1376	2905	821001	Escape from Anzio - (Tammy Grimes)
+1377	2906	821004	The Ninth Commandment - (Tammy Grimes)
+1378	2908	821006	The Abraham Lincoln Murder Trial - (Tammy Grimes)
+1379	2910	821008	The Pale Horse - (Tammy Grimes)
+1380	2911	821011	Tony's Market - (Tammy Grimes)
+1381	2913	821013	Fly Swatter - (Tammy Grimes)
+1382	2915	821015	The Flash Point - (Tammy Grimes)
+1383	2916	821018	Desert Maiden - (Tammy Grimes)
+1384	2918	821020	Last Days of a Dictator - (Tammy Grimes)
+1385	2920	821022	Three Fireflies in a Bottle - (Tammy Grimes)
+1386	2921	821025	Resident Killer - (Tammy Grimes)
+1387	2923	821027	The Voice That Wouldn't Die - (Tammy Grimes)
+1388	2925	821029	I Hate Harold - (Tammy Grimes)
+1389	2927	821102	The Sensible Thing - (Tammy Grimes)
+1390	2929	821104	The School Mistress - (Tammy Grimes)
+1391	2932	821109	Portrait of the Past - (Tammy Grimes)
+1392	2934	821111	The Twelfth Juror - (Tammy Grimes)
+1393	2937	821116	The Magic Dust - (Tammy Grimes)
+1394	2939	821118	Diamond Dotty - (Tammy Grimes)
+1395	2942	821123	The Smile - (Tammy Grimes)
+1396	2944	821125	The Reigate Mystery - (Tammy Grimes)
+1397	2947	821130	The Goddess of Death - (Tammy Grimes)
+1398	2949	821202	The Last Plan - (Tammy Grimes)
+1399	2952	821207	The Boatman and the Devil - (Tammy Grimes)

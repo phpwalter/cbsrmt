@@ -1,0 +1,49 @@
+[{
+  "genre_id": "0",
+  "genre_name": "Unkown"
+}, {
+  "genre_id": "1",
+  "genre_name": "Children"
+}, {
+  "genre_id": "2",
+  "genre_name": "Comedy"
+}, {
+  "genre_id": "3",
+  "genre_name": "Detective\/Police"
+}, {
+  "genre_id": "4",
+  "genre_name": "Drama"
+}, {
+  "genre_id": "5",
+  "genre_name": "Fantasy"
+}, {
+  "genre_id": "6",
+  "genre_name": "Historical"
+}, {
+  "genre_id": "7",
+  "genre_name": "Horror"
+}, {
+  "genre_id": "8",
+  "genre_name": "Musical"
+}, {
+  "genre_id": "9",
+  "genre_name": "Mystery"
+}, {
+  "genre_id": "10",
+  "genre_name": "Suspense"
+}, {
+  "genre_id": "11",
+  "genre_name": "Romance"
+}, {
+  "genre_id": "12",
+  "genre_name": "Sci-Fi"
+}, {
+  "genre_id": "13",
+  "genre_name": "Courtroom Drama"
+}, {
+  "genre_id": "14",
+  "genre_name": "Western"
+}, {
+  "genre_id": "15",
+  "genre_name": "Other"
+}]
