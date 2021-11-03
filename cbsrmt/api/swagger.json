@@ -49,6 +49,7 @@
     },
     "/user" : {
       "get" : {
+        "tags" : [ "Users" ],
         "summary" : "A JSON object containing list of users data and their avatar",
         "responses" : {
           "200" : {
@@ -80,6 +81,7 @@
         "description" : "The user ID"
       } ],
       "get" : {
+        "tags" : [ "Users" ],
         "summary" : "Gets a user by ID",
         "responses" : {
           "200" : {
@@ -109,6 +111,7 @@
         }
       },
       "patch" : {
+        "tags" : [ "Users" ],
         "summary" : "Updates an existing user with the specified ID",
         "responses" : {
           "200" : {
@@ -138,6 +141,7 @@
         }
       },
       "delete" : {
+        "tags" : [ "Users" ],
         "summary" : "Removes an existing user with the specified ID",
         "responses" : {
           "204" : {
