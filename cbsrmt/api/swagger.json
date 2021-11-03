@@ -12,9 +12,6 @@
   "security" : [ {
     "application" : [ "read", "write" ]
   } ],
-  "basePath" : "/",
-  "schemes" : [ "https" ],
-  "produces" : [ "application/json" ],
   "paths" : {
     "/ping" : {
       "get" : {
