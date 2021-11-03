@@ -1,0 +1,234 @@
+{
+  "openapi" : "3.0.0",
+  "servers" : [ {
+    "description" : "CBS Radio Mystery Project API",
+    "url" : "https://virtserver.swaggerhub.com/otrwalter/CBSRMT/1.0.0"
+  } ],
+  "info" : {
+    "version" : "1.0.0",
+    "title" : "CBS Radio Mystery Project API",
+    "description" : "CBS Radio Mystery Project API"
+  },
+  "security" : [ {
+    "application" : [ "read", "write" ]
+  } ],
+  "paths" : {
+    "/ping" : {
+      "get" : {
+        "summary" : "Checks if the server is alive.",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "headers" : {
+              "X-RateLimit-Limit" : {
+                "schema" : {
+                  "type" : "integer"
+                },
+                "description" : "Request limit per hour."
+              },
+              "X-RateLimit-Remaining" : {
+                "schema" : {
+                  "type" : "integer"
+                },
+                "description" : "The number of requests left for the time window."
+              },
+              "X-RateLimit-Reset" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "date-time"
+                },
+                "description" : "The UTC date/time at which the current rate limit window resets."
+              }
+            }
+          }
+        }
+      }
+    },
+    "/user" : {
+      "get" : {
+        "summary" : "A JSON object containing list of users data and their avatar",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/User"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/user/{userId}" : {
+      "parameters" : [ {
+        "in" : "path",
+        "name" : "userId",
+        "schema" : {
+          "type" : "integer"
+        },
+        "required" : true,
+        "description" : "The user ID"
+      } ],
+      "get" : {
+        "summary" : "Gets a user by ID",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/User"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid request"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/Unauthorized"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NotFound"
+          }
+        }
+      },
+      "patch" : {
+        "summary" : "Updates an existing user with the specified ID",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      },
+      "delete" : {
+        "summary" : "Updates an existing user with the specified ID",
+        "responses" : {
+          "204" : {
+            "description" : "OK"
+          },
+          "400" : {
+            "description" : "Invalid request"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/Unauthorized"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NotFound"
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "responses" : {
+      "NotFound" : {
+        "description" : "The specified resource was not found",
+        "content" : {
+          "application/json" : {
+            "schema" : {
+              "$ref" : "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized" : {
+        "description" : "Unauthorized",
+        "content" : {
+          "application/json" : {
+            "schema" : {
+              "$ref" : "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "schemas" : {
+      "User" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "xml" : {
+              "attribute" : true
+            },
+            "description" : "The user ID"
+          },
+          "username" : {
+            "type" : "string",
+            "description" : "The username"
+          },
+          "first_name" : {
+            "type" : "string",
+            "description" : "Users First Name"
+          },
+          "last_name" : {
+            "type" : "string",
+            "description" : "Users Last Name"
+          },
+          "avatar" : {
+            "$ref" : "#/components/schemas/Image"
+          }
+        },
+        "example" : {
+          "id" : 10,
+          "username" : "jsmith",
+          "first_name" : "Jessica",
+          "last_name" : "Smith",
+          "avatar" : "image goes here"
+        },
+        "xml" : {
+          "name" : "user"
+        }
+      },
+      "Image" : {
+        "type" : "object",
+        "properties" : {
+          "avatar" : {
+            "type" : "string",
+            "format" : "byte",
+            "description" : "Base64-encoded contents of the avatar image"
+          }
+        }
+      },
+      "Error" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "message" ]
+      }
+    },
+    "securitySchemes" : {
+      "application" : {
+        "type" : "oauth2",
+        "flows" : {
+          "clientCredentials" : {
+            "tokenUrl" : "http://example.com/oauth/token",
+            "scopes" : {
+              "write" : "allows modifying resources",
+              "read" : "allows reading resources"
+            }
+          }
+        }
+      }
+    }
+  }
+}
