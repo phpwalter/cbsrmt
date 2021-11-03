@@ -12,6 +12,9 @@
   "security" : [ {
     "application" : [ "read", "write" ]
   } ],
+  "basePath" : "/",
+  "schemes" : [ "https" ],
+  "produces" : [ "application/json" ],
   "paths" : {
     "/ping" : {
       "get" : {
@@ -109,7 +112,28 @@
         "summary" : "Updates an existing user with the specified ID",
         "responses" : {
           "200" : {
-            "description" : "OK"
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/User"
+                }
+              },
+              "application/xml" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid request"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/Unauthorized"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NotFound"
           }
         }
       },
