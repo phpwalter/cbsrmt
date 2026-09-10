@@ -31,6 +31,9 @@ PostgreSQL canonical catalog
 stable api.* read projections
         |
         v
+restricted API login
+        |
+        v
 FastAPI service
         |
         v
@@ -91,15 +94,24 @@ python tools/migrate.py
 
 The migration runner records SHA-256 checksums and rejects drift in already-applied migration files.
 
+## Database privilege boundary
+
+`cbsrmt_api` is a `NOLOGIN` privilege role. It can read the `api.*` projections but cannot directly read the normalized `catalog`, `provenance`, `staging`, or `governance` tables.
+
+Runtime environments should provision a separate login role and grant it membership in `cbsrmt_api`:
+
+```sql
+CREATE ROLE cbsrmt_api_login LOGIN PASSWORD 'replace-me';
+GRANT cbsrmt_api TO cbsrmt_api_login;
+```
+
+Do not place environment-specific passwords in migration files.
+
+The API runs `api.runtime_access_check()` during startup and refuses to start when the connected login is not an API-role member, cannot read the API projections, or can directly read protected catalog/provenance tables.
+
 ## Data ingestion principles
 
-Imports are designed to be:
-
-- deterministic;
-- idempotent;
-- source-traceable;
-- conflict-aware;
-- non-destructive to historical evidence.
+Imports are designed to be deterministic, idempotent, source-traceable, conflict-aware, and non-destructive to historical evidence.
 
 The ingestion pipeline is:
 
@@ -139,8 +151,6 @@ The authoritative contract is:
 api/openapi.yaml
 ```
 
-The old user-centric Swagger experiment has been removed from the `foundation` branch.
-
 Current read-only endpoints:
 
 ```text
@@ -152,15 +162,51 @@ GET /broadcasts
 GET /broadcasts/{broadcastId}
 ```
 
-The implementation lives in `app/main.py` and reads through `api.*` PostgreSQL projections instead of querying normalized catalog tables directly.
+The implementation lives in `app/main.py` and reads through `api.*` PostgreSQL projections instead of querying normalized catalog tables directly. Episode and broadcast identifiers are aggregated inside those projections, avoiding per-row identifier queries.
 
-Run locally with:
+Use `API_DATABASE_URL` for the restricted runtime database connection. `DATABASE_URL` remains the administrative/tooling connection used for migrations and imports.
+
+## Local Docker development
+
+The simplest complete local startup is:
 
 ```bash
+docker compose up --build
+```
+
+The compose stack starts PostgreSQL, applies migrations, imports the 1982 source, provisions a restricted `cbsrmt_api_login`, and starts the API on port `8000`.
+
+Useful endpoints after startup:
+
+```text
+http://localhost:8000/health
+http://localhost:8000/docs
+http://localhost:8000/episodes?showNumber=1273
+http://localhost:8000/broadcasts?otrwNumber=2711
+```
+
+To reset local database state completely:
+
+```bash
+docker compose down -v
+```
+
+## Non-container local development
+
+For direct local execution, migrate and seed with an administrative connection, provision a restricted API login, then run Uvicorn using that login:
+
+```bash
+python tools/migrate.py
+python tools/import_1982.py
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-`DATABASE_URL` must point to a migrated PostgreSQL database.
+Required environment variables:
+
+```text
+DATABASE_URL      administrative connection for tooling
+API_DATABASE_URL  restricted runtime connection for FastAPI
+```
 
 ## Tests and CI
 
@@ -168,12 +214,15 @@ The foundation test pipeline:
 
 1. installs Python dependencies;
 2. runs the migration runner;
-3. reruns the migration runner to verify idempotency and checksum stability;
-4. validates the 1982 source;
-5. imports the source twice to verify import idempotency;
-6. runs Python parser and API integration tests;
-7. runs PostgreSQL reconciliation tests;
-8. emits a catalog reconciliation report.
+3. reruns it to verify idempotency and checksum stability;
+4. provisions the restricted API login;
+5. validates the 1982 source;
+6. imports the source twice to verify import idempotency;
+7. verifies restricted runtime access;
+8. runs Python parser and API integration tests;
+9. runs PostgreSQL reconciliation and privilege tests;
+10. verifies FastAPI/OpenAPI contract alignment;
+11. emits a catalog reconciliation report.
 
 Run Python tests with:
 
@@ -201,6 +250,7 @@ Foundation documentation:
 8. Keep API-facing identifiers stable and independent of source systems.
 9. Keep normalized catalog tables behind stable database/API boundaries.
 10. Treat `api/openapi.yaml` as the authoritative HTTP contract.
+11. Run the API with restricted credentials, never migration/import credentials.
 
 ## License
 
