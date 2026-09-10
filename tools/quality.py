@@ -42,6 +42,7 @@ def record_issue(cur, *, source_id: str | None, import_batch_id: str | None, iss
             %s::uuid, %s::uuid, %s, %s::uuid, %s,
             %s, %s, %s, %s, %s, %s
         )
+        ON CONFLICT DO NOTHING
         RETURNING issue_id::text
         """,
         (
@@ -55,6 +56,31 @@ def record_issue(cur, *, source_id: str | None, import_batch_id: str | None, iss
             issue.field_name,
             issue.raw_value,
             issue.normalized_value,
+            issue.message,
+        ),
+    )
+    row = cur.fetchone()
+    if row:
+        return row[0]
+    cur.execute(
+        """
+        SELECT issue_id::text
+        FROM quality.issues
+        WHERE import_batch_id IS NOT DISTINCT FROM %s::uuid
+          AND COALESCE(source_line, 0) = COALESCE(%s, 0)
+          AND severity = %s
+          AND issue_code = %s
+          AND COALESCE(field_name, '') = COALESCE(%s, '')
+          AND COALESCE(raw_value, '') = COALESCE(%s, '')
+          AND message = %s
+        """,
+        (
+            import_batch_id,
+            issue.source_line,
+            issue.severity,
+            issue.issue_code,
+            issue.field_name,
+            issue.raw_value,
             issue.message,
         ),
     )
@@ -90,6 +116,7 @@ def quarantine_record(
         ) VALUES (
             %s::uuid, %s::uuid, %s, %s, %s, %s, %s::jsonb, %s
         )
+        ON CONFLICT DO NOTHING
         RETURNING quarantine_id::text
         """,
         (
@@ -102,5 +129,21 @@ def quarantine_record(
             json.dumps(parsed_payload) if parsed_payload is not None else None,
             severity,
         ),
+    )
+    row = cur.fetchone()
+    if row:
+        return row[0]
+    cur.execute(
+        """
+        SELECT quarantine_id::text
+        FROM quality.quarantine
+        WHERE import_batch_id = %s::uuid
+          AND COALESCE(source_line, 0) = COALESCE(%s, 0)
+          AND record_type = %s
+          AND issue_code = %s
+          AND raw_record = %s
+          AND severity = %s
+        """,
+        (import_batch_id, source_line, record_type, issue_code, raw_record, severity),
     )
     return cur.fetchone()[0]
