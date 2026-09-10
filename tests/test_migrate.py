@@ -79,11 +79,14 @@ def test_validate_migration_files_requires_sequence_name(tmp_path: Path):
         validate_migration_files([invalid])
 
 
-def test_validate_migration_files_rejects_duplicate_sequence(tmp_path: Path):
-    first = write(tmp_path, "0001_first.sql", "SELECT 1;")
-    second = write(tmp_path, "0001_second.sql", "SELECT 2;")
-    with pytest.raises(RuntimeError, match="duplicate migration sequence"):
-        validate_migration_files([first, second])
+def test_validate_migration_files_allows_same_numeric_prefix_when_names_are_distinct(tmp_path: Path):
+    first = write(tmp_path, "0007_api_contract.sql", "SELECT 1;")
+    second = write(tmp_path, "0007_data_quality.sql", "SELECT 2;")
+    validate_migration_files([first, second])
+    assert [path.name for path in sorted([second, first], key=lambda p: p.name)] == [
+        "0007_api_contract.sql",
+        "0007_data_quality.sql",
+    ]
 
 
 def test_checksum_uses_original_bytes_not_execution_body(tmp_path: Path):
