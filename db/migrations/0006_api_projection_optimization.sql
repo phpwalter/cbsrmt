@@ -11,6 +11,8 @@ SELECT
     e.duration_seconds,
     e.series_name,
     e.verification_status,
+    e.created_at,
+    e.updated_at,
     COALESCE(
         jsonb_agg(
             jsonb_build_object(
@@ -20,9 +22,7 @@ SELECT
             ORDER BY i.namespace, i.identifier_value
         ) FILTER (WHERE i.external_identifier_id IS NOT NULL),
         '[]'::jsonb
-    ) AS identifiers,
-    e.created_at,
-    e.updated_at
+    ) AS identifiers
 FROM catalog.episodes e
 LEFT JOIN provenance.external_identifiers i
     ON i.entity_type = 'episode'
@@ -37,6 +37,8 @@ SELECT
     b.broadcast_date,
     b.broadcast_type,
     b.verification_status,
+    b.created_at,
+    b.updated_at,
     COALESCE(
         jsonb_agg(
             jsonb_build_object(
@@ -46,9 +48,7 @@ SELECT
             ORDER BY i.namespace, i.identifier_value
         ) FILTER (WHERE i.external_identifier_id IS NOT NULL),
         '[]'::jsonb
-    ) AS identifiers,
-    b.created_at,
-    b.updated_at
+    ) AS identifiers
 FROM catalog.broadcasts b
 LEFT JOIN provenance.external_identifiers i
     ON i.entity_type = 'broadcast'
