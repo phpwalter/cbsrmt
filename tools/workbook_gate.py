@@ -8,10 +8,13 @@ import json
 import sys
 from pathlib import Path
 
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from tools.validate_workbook_mapping import load_report, load_yaml, validate
 
 
-def evaluate(mapping_path: Path, workbook_path: Path, inspection_path: Path | None = None) -> dict[str, object]:
+def evaluate_gate(mapping_path: Path, workbook_path: Path, inspection_path: Path | None = None) -> dict[str, object]:
     mapping = load_yaml(mapping_path)
     report_path = inspection_path or Path(mapping["workbook"]["inspectionReport"])
     report = load_report(report_path)
@@ -32,6 +35,10 @@ def evaluate(mapping_path: Path, workbook_path: Path, inspection_path: Path | No
     }
 
 
+# Backward-compatible alias for earlier callers/tests.
+evaluate = evaluate_gate
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mapping", type=Path)
@@ -41,7 +48,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        result = evaluate(args.mapping, args.workbook, args.inspection)
+        result = evaluate_gate(args.mapping, args.workbook, args.inspection)
     except Exception as exc:
         if args.json:
             print(json.dumps({"eligible": False, "reason": str(exc)}, indent=2))
