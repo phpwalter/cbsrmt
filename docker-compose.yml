@@ -1,0 +1,73 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: cbsrmt_admin
+      POSTGRES_PASSWORD: cbsrmt_admin
+      POSTGRES_DB: cbsrmt
+    ports:
+      - "5432:5432"
+    volumes:
+      - cbsrmt_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cbsrmt_admin -d cbsrmt"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://cbsrmt_admin:cbsrmt_admin@db:5432/cbsrmt
+    command: ["python", "tools/migrate.py"]
+    volumes:
+      - .:/app
+
+  seed:
+    build: .
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://cbsrmt_admin:cbsrmt_admin@db:5432/cbsrmt
+    command: ["python", "tools/import_1982.py"]
+    volumes:
+      - .:/app
+
+  provision-api-login:
+    image: postgres:16
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      PGPASSWORD: cbsrmt_admin
+    command:
+      - sh
+      - -c
+      - >-
+        psql -h db -U cbsrmt_admin -d cbsrmt -v ON_ERROR_STOP=1
+        -c "DO \$\$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='cbsrmt_api_login') THEN
+          CREATE ROLE cbsrmt_api_login LOGIN PASSWORD 'cbsrmt_api';
+        END IF;
+        END \$\$;"
+        -c "GRANT cbsrmt_api TO cbsrmt_api_login;"
+
+  api:
+    build: .
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+      provision-api-login:
+        condition: service_completed_successfully
+    environment:
+      API_DATABASE_URL: postgresql://cbsrmt_api_login:cbsrmt_api@db:5432/cbsrmt
+      CBSRMT_REQUIRED_DB_ROLE: cbsrmt_api
+    ports:
+      - "8000:8000"
+
+volumes:
+  cbsrmt_pgdata:
