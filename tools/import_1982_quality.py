@@ -18,7 +18,7 @@ from tools.import_1982 import (
     source_checksum,
     stage_records,
 )
-from tools.quality import quarantine_record, record_issue
+from tools.quality import QualityIssue, quarantine_record, record_issue
 
 
 def scan_lines(lines: list[str]):
@@ -39,7 +39,6 @@ def scan_lines(lines: list[str]):
             continue
 
         row = rows[0]
-        # parse_log sees one line at a time, so restore the real source line.
         row = type(row)(
             source_line=source_line,
             show_number=row.show_number,
@@ -65,6 +64,27 @@ def scan_lines(lines: list[str]):
     return accepted, rejected
 
 
+def persist_rejection(cur, *, batch_id: str, source_id: str, source_line: int, raw_record: str, code: str, message: str) -> None:
+    issue = QualityIssue(
+        severity="ERROR",
+        issue_code=code,
+        message=message,
+        source_line=source_line,
+        raw_value=raw_record,
+    )
+    record_issue(cur, source_id=source_id, import_batch_id=batch_id, issue=issue)
+    quarantine_record(
+        cur,
+        import_batch_id=batch_id,
+        record_type="broadcast_log_1982",
+        issue_code=code,
+        raw_record=raw_record,
+        severity="ERROR",
+        source_id=source_id,
+        source_line=source_line,
+    )
+
+
 def import_quality(database_url: str, source: Path) -> tuple[int, int]:
     import psycopg
 
@@ -76,11 +96,6 @@ def import_quality(database_url: str, source: Path) -> tuple[int, int]:
         with conn.cursor() as cur:
             source_id = ensure_source(cur)
             batch_id, _ = ensure_batch(cur, source_id, checksum)
-
-            # Idempotent reruns replace prior unresolved quality findings for this batch.
-            cur.execute("DELETE FROM quality.quarantine WHERE import_batch_id = %s::uuid AND resolution_status = 'open'", (batch_id,))
-            cur.execute("DELETE FROM quality.issues WHERE import_batch_id = %s::uuid AND resolution_status = 'open'", (batch_id,))
-
             stage_records(cur, batch_id, accepted)
 
             accepted_count = 0
@@ -93,47 +108,25 @@ def import_quality(database_url: str, source: Path) -> tuple[int, int]:
                     accepted_count += 1
                 except Exception as exc:
                     canonical_rejections += 1
-                    record_issue(
+                    persist_rejection(
                         cur,
-                        severity="ERROR",
-                        issue_code="CANONICAL_CONFLICT",
-                        message=str(exc),
-                        import_batch_id=batch_id,
+                        batch_id=batch_id,
                         source_id=source_id,
                         source_line=row.source_line,
-                        raw_value=row.raw_record,
-                    )
-                    quarantine_record(
-                        cur,
-                        import_batch_id=batch_id,
-                        record_type="broadcast_log_1982",
-                        issue_code="CANONICAL_CONFLICT",
                         raw_record=row.raw_record,
-                        severity="ERROR",
-                        source_id=source_id,
-                        source_line=row.source_line,
+                        code="CANONICAL_CONFLICT",
+                        message=str(exc),
                     )
 
             for source_line, raw_record, code, message in rejected:
-                record_issue(
+                persist_rejection(
                     cur,
-                    severity="ERROR",
-                    issue_code=code,
-                    message=message,
-                    import_batch_id=batch_id,
+                    batch_id=batch_id,
                     source_id=source_id,
                     source_line=source_line,
-                    raw_value=raw_record,
-                )
-                quarantine_record(
-                    cur,
-                    import_batch_id=batch_id,
-                    record_type="broadcast_log_1982",
-                    issue_code=code,
                     raw_record=raw_record,
-                    severity="ERROR",
-                    source_id=source_id,
-                    source_line=source_line,
+                    code=code,
+                    message=message,
                 )
 
             rejected_count = len(rejected) + canonical_rejections
