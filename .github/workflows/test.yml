@@ -1,0 +1,84 @@
+name: test
+
+on:
+  push:
+    branches:
+      - foundation
+  pull_request:
+    branches:
+      - main
+      - foundation
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: cbsrmt
+          POSTGRES_PASSWORD: cbsrmt
+          POSTGRES_DB: cbsrmt
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cbsrmt -d cbsrmt"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://cbsrmt:cbsrmt@localhost:5432/cbsrmt
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Apply migrations
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/0001_foundation.sql
+
+      - name: Validate historical source
+        run: python tools/import_1982.py --validate-only
+
+      - name: Import historical source
+        run: python tools/import_1982.py
+
+      - name: Re-import historical source
+        run: python tools/import_1982.py
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Reconcile canonical counts
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE
+              episode_count integer;
+              broadcast_count integer;
+              batch_count integer;
+          BEGIN
+              SELECT count(*) INTO episode_count FROM catalog.episodes;
+              SELECT count(*) INTO broadcast_count FROM catalog.broadcasts;
+              SELECT count(*) INTO batch_count FROM provenance.import_batches;
+
+              IF episode_count <> 127 THEN
+                  RAISE EXCEPTION 'Expected 127 episodes, found %', episode_count;
+              END IF;
+              IF broadcast_count <> 127 THEN
+                  RAISE EXCEPTION 'Expected 127 broadcasts, found %', broadcast_count;
+              END IF;
+              IF batch_count <> 1 THEN
+                  RAISE EXCEPTION 'Expected one idempotent import batch, found %', batch_count;
+              END IF;
+          END $$;
+          SQL
