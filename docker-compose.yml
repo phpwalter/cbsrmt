@@ -66,8 +66,20 @@ services:
     environment:
       API_DATABASE_URL: postgresql://cbsrmt_api_login:cbsrmt_api@db:5432/cbsrmt
       CBSRMT_REQUIRED_DB_ROLE: cbsrmt_api
+      CBSRMT_DB_POOL_MIN_SIZE: "1"
+      CBSRMT_DB_POOL_MAX_SIZE: "10"
+      CBSRMT_DB_POOL_TIMEOUT_SECONDS: "5"
+      CBSRMT_DB_STATEMENT_TIMEOUT_MS: "5000"
+      CBSRMT_DB_LOCK_TIMEOUT_MS: "2000"
+      LOG_LEVEL: INFO
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=2)\""]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
 
 volumes:
   cbsrmt_pgdata:
