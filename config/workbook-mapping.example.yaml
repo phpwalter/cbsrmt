@@ -4,6 +4,9 @@ workbook:
   sha256: REVIEW_REQUIRED
   inspectionReport: artifacts/workbook-inspection.json
   status: REVIEW_REQUIRED
+  approvedBy: null
+  approvedAt: null
+  approvalNote: null
 
 sheets:
   - sheetName: REVIEW_REQUIRED
@@ -14,15 +17,29 @@ sheets:
     columns: []
 
 # Canonical mapping is intentionally blocked while status is REVIEW_REQUIRED.
-# After inspection, each mapped column must identify its source header,
-# target entity/field, transformation, null policy, and provenance policy.
+# Approval is checksum-bound to the exact workbook and inspection report.
+# After inspection, every approved sheet must identify its source headers and
+# each mapped column must declare its target, transform, required/null policy,
+# and provenance handling.
 #
 # Example reviewed mapping:
-#    columns:
-#      - sourceHeader: SHOW #
-#        target:
-#          entity: episode
-#          field: canonical_number
-#        transform: integer
-#        required: true
-#        provenance: preserve_raw_and_normalized
+# workbook:
+#   status: APPROVED
+#   approvedBy: reviewer-name
+#   approvedAt: 2026-09-10T18:00:00-05:00
+#   approvalNote: Reviewed against workbook inspection report.
+#
+# sheets:
+#   - sheetName: Episodes
+#     headerRow: 1
+#     status: APPROVED
+#     candidateEntity: episode
+#     keyColumns: [SHOW #]
+#     columns:
+#       - sourceHeader: SHOW #
+#         target:
+#           entity: episode
+#           field: canonical_number
+#         transform: integer
+#         required: true
+#         provenance: preserve_raw_and_normalized
