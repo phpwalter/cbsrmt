@@ -30,6 +30,8 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://cbsrmt:cbsrmt@localhost:5432/cbsrmt
+      API_DATABASE_URL: postgresql://cbsrmt_api_login:cbsrmt_api@localhost:5432/cbsrmt
+      CBSRMT_REQUIRED_DB_ROLE: cbsrmt_api
 
     steps:
       - name: Checkout
@@ -49,6 +51,18 @@ jobs:
       - name: Verify migration checksums
         run: python tools/migrate.py
 
+      - name: Provision restricted API login
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+              IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cbsrmt_api_login') THEN
+                  CREATE ROLE cbsrmt_api_login LOGIN PASSWORD 'cbsrmt_api';
+              END IF;
+          END $$;
+          GRANT cbsrmt_api TO cbsrmt_api_login;
+          SQL
+
       - name: Validate historical source
         run: python tools/import_1982.py --validate-only
 
@@ -57,6 +71,13 @@ jobs:
 
       - name: Re-import historical source
         run: python tools/import_1982.py
+
+      - name: Verify restricted runtime access
+        run: |
+          psql "$API_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT * FROM api.runtime_access_check();
+          SELECT count(*) FROM api.episodes;
+          SQL
 
       - name: Run Python tests
         run: pytest -q
