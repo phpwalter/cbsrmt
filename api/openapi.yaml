@@ -8,6 +8,30 @@ info:
 servers:
   - url: http://localhost:8000
 paths:
+  /live:
+    get:
+      operationId: getLiveness
+      summary: Check whether the API process is alive
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+  /ready:
+    get:
+      operationId: getReadiness
+      summary: Check whether the API is ready to serve catalog traffic
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /health:
     get:
       operationId: getHealth
@@ -19,6 +43,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Health'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /episodes:
     get:
       operationId: listEpisodes
@@ -160,6 +186,12 @@ components:
   responses:
     NotFound:
       description: Resource not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unavailable:
+      description: Service is not ready
       content:
         application/problem+json:
           schema:
