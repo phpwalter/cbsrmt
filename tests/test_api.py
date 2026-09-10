@@ -9,18 +9,44 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="DATABASE_URL not configured")
+API_DATABASE_URL = os.getenv("API_DATABASE_URL") or DATABASE_URL
+pytestmark = pytest.mark.skipif(not API_DATABASE_URL, reason="API_DATABASE_URL not configured")
 
 
 @pytest.fixture(scope="module")
-def client() -> TestClient:
-    return TestClient(app)
+def client():
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+def test_liveness(client: TestClient) -> None:
+    response = client.get("/live")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_readiness(client: TestClient) -> None:
+    response = client.get("/ready")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
 
 
 def test_health(client: TestClient) -> None:
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_request_id_is_generated(client: TestClient) -> None:
+    response = client.get("/live")
+    assert response.status_code == 200
+    assert response.headers.get("x-request-id")
+
+
+def test_request_id_is_preserved(client: TestClient) -> None:
+    response = client.get("/live", headers={"X-Request-ID": "integration-test-123"})
+    assert response.status_code == 200
+    assert response.headers["x-request-id"] == "integration-test-123"
 
 
 def test_list_episodes(client: TestClient) -> None:
@@ -90,7 +116,7 @@ def test_not_found_problem_json(client: TestClient) -> None:
 
 
 def test_api_reads_projection_views() -> None:
-    with psycopg.connect(DATABASE_URL) as conn, conn.cursor() as cur:
+    with psycopg.connect(API_DATABASE_URL) as conn, conn.cursor() as cur:
         cur.execute("SELECT count(*) FROM api.episodes")
         assert cur.fetchone()[0] == 127
         cur.execute("SELECT count(*) FROM api.broadcasts")
