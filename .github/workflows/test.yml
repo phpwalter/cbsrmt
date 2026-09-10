@@ -63,14 +63,53 @@ jobs:
           GRANT cbsrmt_api TO cbsrmt_api_login;
           SQL
 
-      - name: Validate historical source
+      - name: Validate historical source strictly
         run: python tools/import_1982.py --validate-only
 
-      - name: Import historical source
-        run: python tools/import_1982.py
+      - name: Import historical source through quality pipeline
+        run: python tools/import_1982_quality.py
 
-      - name: Re-import historical source
-        run: python tools/import_1982.py
+      - name: Re-import historical source through quality pipeline
+        run: python tools/import_1982_quality.py
+
+      - name: Verify quality pipeline is clean for repository source
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE
+              accepted integer;
+              rejected integer;
+              open_issues integer;
+              quarantine_count integer;
+          BEGIN
+              SELECT rows_accepted, rows_rejected
+              INTO accepted, rejected
+              FROM provenance.import_batches
+              ORDER BY started_at DESC
+              LIMIT 1;
+
+              SELECT count(*) INTO open_issues
+              FROM quality.issues
+              WHERE resolution_status = 'open';
+
+              SELECT count(*) INTO quarantine_count
+              FROM quality.quarantine
+              WHERE resolution_status = 'open';
+
+              IF accepted <> 127 THEN
+                  RAISE EXCEPTION 'Expected 127 accepted rows, found %', accepted;
+              END IF;
+              IF rejected <> 0 THEN
+                  RAISE EXCEPTION 'Expected 0 rejected rows, found %', rejected;
+              END IF;
+              IF open_issues <> 0 THEN
+                  RAISE EXCEPTION 'Expected 0 open quality issues, found %', open_issues;
+              END IF;
+              IF quarantine_count <> 0 THEN
+                  RAISE EXCEPTION 'Expected 0 quarantined rows, found %', quarantine_count;
+              END IF;
+          END $$;
+          SQL
 
       - name: Verify restricted runtime access
         run: |
