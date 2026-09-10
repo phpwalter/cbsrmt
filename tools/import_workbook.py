@@ -16,6 +16,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 import psycopg
 from psycopg.rows import dict_row
 
@@ -48,7 +51,7 @@ def execute_import(
     mapping = load_yaml(mapping_path)
     report = load_report(inspection_path)
     validate(mapping, report, workbook_path)
-    gate = evaluate_gate(mapping_path, inspection_path, workbook_path)
+    gate = evaluate_gate(mapping_path, workbook_path, inspection_path)
     if not gate["eligible"]:
         raise RuntimeError("canonicalization gate did not pass")
 
