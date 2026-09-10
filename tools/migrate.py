@@ -193,13 +193,10 @@ def validate_migration_files(migrations: list[Path]) -> None:
     invalid = [path.name for path in migrations if not MIGRATION_NAME_RE.fullmatch(path.name)]
     if invalid:
         raise RuntimeError(f"invalid migration filenames: {', '.join(invalid)}")
-    names = [path.name[:4] for path in migrations]
-    if len(names) != len(set(names)):
-        raise RuntimeError("duplicate migration sequence numbers detected")
 
 
 def apply(database_url: str, directory: Path) -> tuple[int, int]:
-    migrations = sorted(directory.glob("*.sql"))
+    migrations = sorted(directory.glob("*.sql"), key=lambda path: path.name)
     if not migrations:
         raise RuntimeError(f"no migrations found in {directory}")
     validate_migration_files(migrations)
