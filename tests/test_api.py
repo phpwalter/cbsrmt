@@ -27,42 +27,57 @@ def test_list_episodes(client: TestClient) -> None:
     response = client.get("/episodes", params={"year": 1982, "limit": 10})
     assert response.status_code == 200
     payload = response.json()
-    assert payload["total"] == 127
-    assert payload["limit"] == 10
-    assert len(payload["items"]) == 10
-    assert payload["items"][0]["canonical_number"] == 1273
+    assert payload["meta"]["count"] == 127
+    assert payload["meta"]["limit"] == 10
+    assert payload["meta"]["offset"] == 0
+    assert len(payload["data"]) == 10
+    assert payload["data"][0]["canonicalNumber"] == 1273
+    assert payload["data"][0]["identifiers"] == [
+        {"namespace": "cbsrmt.show_number", "value": "1273"}
+    ]
 
 
 def test_lookup_episode_by_show_number(client: TestClient) -> None:
-    response = client.get("/episodes", params={"show_number": 1273})
+    response = client.get("/episodes", params={"showNumber": 1273})
     assert response.status_code == 200
     payload = response.json()
-    assert payload["total"] == 1
-    assert payload["items"][0]["title"] == "The Acquisition"
+    assert payload["meta"]["count"] == 1
+    assert payload["data"][0]["title"] == "The Acquisition"
 
 
 def test_lookup_broadcast_by_otrw_number(client: TestClient) -> None:
-    response = client.get("/broadcasts", params={"otrw_number": 2711})
+    response = client.get("/broadcasts", params={"otrwNumber": 2711})
     assert response.status_code == 200
     payload = response.json()
-    assert payload["total"] == 1
-    assert payload["items"][0]["broadcast_date"] == "1982-01-04"
-    assert payload["items"][0]["broadcast_type"] == "original"
+    assert payload["meta"]["count"] == 1
+    assert payload["data"][0]["broadcastDate"] == "1982-01-04"
+    assert payload["data"][0]["broadcastType"] == "original"
+    assert payload["data"][0]["identifiers"] == [
+        {"namespace": "otrwalter.broadcast_number", "value": "2711"}
+    ]
 
 
 def test_episode_detail_and_broadcasts(client: TestClient) -> None:
-    listing = client.get("/episodes", params={"show_number": 1273}).json()
-    episode_id = listing["items"][0]["episode_id"]
+    listing = client.get("/episodes", params={"showNumber": 1273}).json()
+    episode_id = listing["data"][0]["episodeId"]
 
     detail = client.get(f"/episodes/{episode_id}")
     assert detail.status_code == 200
-    assert detail.json()["canonical_number"] == 1273
+    assert detail.json()["canonicalNumber"] == 1273
 
     broadcasts = client.get(f"/episodes/{episode_id}/broadcasts")
     assert broadcasts.status_code == 200
     payload = broadcasts.json()
-    assert payload["total"] == 1
-    assert payload["items"][0]["broadcast_date"] == "1982-01-04"
+    assert payload["meta"]["count"] == 1
+    assert payload["data"][0]["broadcastDate"] == "1982-01-04"
+
+
+def test_broadcast_type_alias(client: TestClient) -> None:
+    response = client.get("/broadcasts", params={"type": "original", "limit": 5})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["meta"]["count"] == 127
+    assert all(item["broadcastType"] == "original" for item in payload["data"])
 
 
 def test_not_found_problem_json(client: TestClient) -> None:
