@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
 from psycopg.rows import dict_row
 
-DATABASE_URL = os.getenv("DATABASE_URL", "")
+DATABASE_URL = os.getenv("API_DATABASE_URL") or os.getenv("DATABASE_URL", "")
 REQUIRED_DB_ROLE = os.getenv("CBSRMT_REQUIRED_DB_ROLE", "cbsrmt_api")
 PROBLEM_404 = {
     404: {
@@ -41,7 +41,7 @@ app = FastAPI(
 
 def db_connection():
     if not DATABASE_URL:
-        raise RuntimeError("DATABASE_URL is required")
+        raise RuntimeError("API_DATABASE_URL or DATABASE_URL is required")
     return psycopg.connect(DATABASE_URL, row_factory=dict_row)
 
 
@@ -91,33 +91,28 @@ def serialize_broadcast(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def page(data: list[dict[str, Any]], total: int, limit: int, offset: int) -> dict[str, Any]:
-    return {
-        "data": data,
-        "meta": {
-            "limit": limit,
-            "offset": offset,
-            "count": total,
-        },
-    }
+    return {"data": data, "meta": {"limit": limit, "offset": offset, "count": total}}
 
 
-def database_diagnostics() -> dict[str, str]:
+def database_diagnostics() -> dict[str, Any]:
     with db_connection() as conn, conn.cursor() as cur:
-        cur.execute("SELECT current_user AS current_user, current_database() AS current_database")
+        cur.execute("SELECT * FROM api.runtime_access_check()")
         row = cur.fetchone()
-    return {
-        "role": row["current_user"],
-        "database": row["current_database"],
-    }
+    return dict(row)
 
 
 def assert_runtime_role() -> None:
     diagnostics = database_diagnostics()
-    if diagnostics["role"] != REQUIRED_DB_ROLE:
+    if not diagnostics["is_api_member"]:
         raise RuntimeError(
-            f"API must run as database role {REQUIRED_DB_ROLE!r}; "
-            f"connected as {diagnostics['role']!r}"
+            f"Database login {diagnostics['login_role']!r} is not a member of {REQUIRED_DB_ROLE!r}"
         )
+    if not diagnostics["can_read_api"]:
+        raise RuntimeError("Database login cannot read api.* projections")
+    if diagnostics["can_read_catalog_directly"]:
+        raise RuntimeError("Database login can read catalog tables directly")
+    if diagnostics["can_read_provenance_directly"]:
+        raise RuntimeError("Database login can read provenance tables directly")
 
 
 @app.on_event("startup")
@@ -127,9 +122,10 @@ def verify_runtime_database_role() -> None:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    diagnostics = database_diagnostics()
-    if diagnostics["role"] != REQUIRED_DB_ROLE:
-        raise HTTPException(status_code=503, detail="Database role boundary is not enforced")
+    try:
+        assert_runtime_role()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {"status": "ok"}
 
 
@@ -143,7 +139,6 @@ def list_episodes(
 ) -> dict[str, Any]:
     clauses: list[str] = []
     params: list[Any] = []
-
     if year is not None:
         clauses.append("EXTRACT(YEAR FROM e.original_air_date) = %s")
         params.append(year)
@@ -153,25 +148,15 @@ def list_episodes(
     if show_number is not None:
         clauses.append("e.canonical_number = %s")
         params.append(show_number)
-
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-
     with db_connection() as conn, conn.cursor() as cur:
         cur.execute(f"SELECT count(*) AS count FROM api.episodes e {where}", params)
         total = cur.fetchone()["count"]
         cur.execute(
-            f"""
-            SELECT *
-            FROM api.episodes e
-            {where}
-            ORDER BY e.canonical_number NULLS LAST, e.original_air_date, e.episode_id
-            LIMIT %s OFFSET %s
-            """,
+            f"SELECT * FROM api.episodes e {where} ORDER BY e.canonical_number NULLS LAST, e.original_air_date, e.episode_id LIMIT %s OFFSET %s",
             [*params, limit, offset],
         )
-        rows = cur.fetchall()
-        data = [serialize_episode(row) for row in rows]
-
+        data = [serialize_episode(row) for row in cur.fetchall()]
     return page(data, total, limit, offset)
 
 
@@ -195,31 +180,20 @@ def get_episode_broadcasts(
         cur.execute("SELECT 1 FROM api.episodes WHERE episode_id = %s", (episode_id,))
         if cur.fetchone() is None:
             raise HTTPException(status_code=404, detail="Episode not found")
-        cur.execute(
-            "SELECT count(*) AS count FROM api.broadcasts WHERE episode_id = %s",
-            (episode_id,),
-        )
+        cur.execute("SELECT count(*) AS count FROM api.broadcasts WHERE episode_id = %s", (episode_id,))
         total = cur.fetchone()["count"]
         cur.execute(
-            """
-            SELECT * FROM api.broadcasts
-            WHERE episode_id = %s
-            ORDER BY broadcast_date, broadcast_at NULLS LAST, broadcast_id
-            LIMIT %s OFFSET %s
-            """,
+            "SELECT * FROM api.broadcasts WHERE episode_id = %s ORDER BY broadcast_date, broadcast_at NULLS LAST, broadcast_id LIMIT %s OFFSET %s",
             (episode_id, limit, offset),
         )
-        rows = cur.fetchall()
-        data = [serialize_broadcast(row) for row in rows]
+        data = [serialize_broadcast(row) for row in cur.fetchall()]
     return page(data, total, limit, offset)
 
 
 @app.get("/broadcasts")
 def list_broadcasts(
     year: int | None = Query(default=None, ge=1974, le=1998),
-    broadcast_type: str | None = Query(
-        default=None, alias="type", pattern="^(original|rerun|unknown)$"
-    ),
+    broadcast_type: str | None = Query(default=None, alias="type", pattern="^(original|rerun|unknown)$"),
     otrw_number: int | None = Query(default=None, alias="otrwNumber", ge=1),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
@@ -227,7 +201,6 @@ def list_broadcasts(
     clauses: list[str] = []
     params: list[Any] = []
     join = ""
-
     if year is not None:
         clauses.append("EXTRACT(YEAR FROM b.broadcast_date) = %s")
         params.append(year)
@@ -239,29 +212,15 @@ def list_broadcasts(
         clauses.append("i.namespace = 'otrwalter.broadcast_number'")
         clauses.append("i.identifier_value = %s")
         params.append(str(otrw_number))
-
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-
     with db_connection() as conn, conn.cursor() as cur:
-        cur.execute(
-            f"SELECT count(DISTINCT b.broadcast_id) AS count FROM api.broadcasts b {join} {where}",
-            params,
-        )
+        cur.execute(f"SELECT count(DISTINCT b.broadcast_id) AS count FROM api.broadcasts b {join} {where}", params)
         total = cur.fetchone()["count"]
         cur.execute(
-            f"""
-            SELECT DISTINCT b.*
-            FROM api.broadcasts b
-            {join}
-            {where}
-            ORDER BY b.broadcast_date, b.broadcast_at NULLS LAST, b.broadcast_id
-            LIMIT %s OFFSET %s
-            """,
+            f"SELECT DISTINCT b.* FROM api.broadcasts b {join} {where} ORDER BY b.broadcast_date, b.broadcast_at NULLS LAST, b.broadcast_id LIMIT %s OFFSET %s",
             [*params, limit, offset],
         )
-        rows = cur.fetchall()
-        data = [serialize_broadcast(row) for row in rows]
-
+        data = [serialize_broadcast(row) for row in cur.fetchall()]
     return page(data, total, limit, offset)
 
 
