@@ -37,6 +37,25 @@ PROBLEM_404 = {
         },
     }
 }
+PROBLEM_503 = {
+    503: {
+        "description": "Service is not ready",
+        "content": {
+            "application/problem+json": {
+                "schema": {
+                    "type": "object",
+                    "required": ["type", "title", "status"],
+                    "properties": {
+                        "type": {"type": "string"},
+                        "title": {"type": "string"},
+                        "status": {"type": "integer"},
+                        "detail": {"type": "string"},
+                    },
+                }
+            }
+        },
+    }
+}
 
 
 def log_event(event: str, **fields: Any) -> None:
@@ -157,7 +176,7 @@ def liveness() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/ready")
+@app.get("/ready", responses=PROBLEM_503)
 def readiness() -> dict[str, str]:
     try:
         assert_runtime_role()
@@ -166,7 +185,7 @@ def readiness() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/health")
+@app.get("/health", responses=PROBLEM_503)
 def health() -> dict[str, str]:
     return readiness()
 
