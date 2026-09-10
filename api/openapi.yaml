@@ -1,0 +1,283 @@
+openapi: 3.1.0
+info:
+  title: CBS Radio Mystery Theater Catalog API
+  version: 0.1.0
+  description: |
+    Read-only API for canonical CBS Radio Mystery Theater episode and broadcast metadata.
+    Episode identity and broadcast identity are modeled separately so reruns do not duplicate episodes.
+servers:
+  - url: http://localhost:8000
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Check API health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+  /episodes:
+    get:
+      operationId: listEpisodes
+      summary: List episodes
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - name: year
+          in: query
+          schema:
+            type: integer
+            minimum: 1974
+        - name: title
+          in: query
+          description: Case-insensitive title search
+          schema:
+            type: string
+        - name: showNumber
+          in: query
+          description: Historical SHOW number
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Episode collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EpisodePage'
+  /episodes/{episodeId}:
+    get:
+      operationId: getEpisode
+      summary: Get an episode by canonical UUID
+      parameters:
+        - $ref: '#/components/parameters/EpisodeId'
+      responses:
+        '200':
+          description: Episode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Episode'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /episodes/{episodeId}/broadcasts:
+    get:
+      operationId: listEpisodeBroadcasts
+      summary: List all known broadcasts of an episode
+      parameters:
+        - $ref: '#/components/parameters/EpisodeId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Broadcast collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BroadcastPage'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /broadcasts:
+    get:
+      operationId: listBroadcasts
+      summary: List individual broadcast occurrences
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - name: year
+          in: query
+          schema:
+            type: integer
+            minimum: 1974
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [original, rerun, unknown]
+        - name: otrwNumber
+          in: query
+          description: OTRWalter broadcast number
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Broadcast collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BroadcastPage'
+  /broadcasts/{broadcastId}:
+    get:
+      operationId: getBroadcast
+      summary: Get a broadcast occurrence by UUID
+      parameters:
+        - $ref: '#/components/parameters/BroadcastId'
+      responses:
+        '200':
+          description: Broadcast
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Broadcast'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  parameters:
+    EpisodeId:
+      name: episodeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    BroadcastId:
+      name: broadcastId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: ok
+    ExternalIdentifier:
+      type: object
+      required: [namespace, value]
+      properties:
+        namespace:
+          type: string
+        value:
+          type: string
+    Episode:
+      type: object
+      required: [episodeId, title, seriesName, verificationStatus]
+      properties:
+        episodeId:
+          type: string
+          format: uuid
+        canonicalNumber:
+          type: [integer, 'null']
+        title:
+          type: string
+        subtitle:
+          type: [string, 'null']
+        synopsis:
+          type: [string, 'null']
+        originalAirDate:
+          type: [string, 'null']
+          format: date
+        durationSeconds:
+          type: [integer, 'null']
+        seriesName:
+          type: string
+        verificationStatus:
+          type: string
+          enum: [unverified, source-backed, verified, disputed, rejected]
+        identifiers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExternalIdentifier'
+    Broadcast:
+      type: object
+      required: [broadcastId, episodeId, broadcastType, verificationStatus]
+      properties:
+        broadcastId:
+          type: string
+          format: uuid
+        episodeId:
+          type: string
+          format: uuid
+        broadcastAt:
+          type: [string, 'null']
+          format: date-time
+        broadcastDate:
+          type: [string, 'null']
+          format: date
+        broadcastType:
+          type: string
+          enum: [original, rerun, unknown]
+        verificationStatus:
+          type: string
+          enum: [unverified, source-backed, verified, disputed, rejected]
+        identifiers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExternalIdentifier'
+    PageMeta:
+      type: object
+      required: [limit, offset, count]
+      properties:
+        limit:
+          type: integer
+        offset:
+          type: integer
+        count:
+          type: integer
+    EpisodePage:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Episode'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    BroadcastPage:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Broadcast'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
