@@ -8,7 +8,7 @@ The repository contains historical source material, legacy catalog data, and a m
 
 Active modernization work is on the `foundation` branch.
 
-The original `main` branch is being preserved as the historical baseline.
+The original `main` branch is preserved as the historical baseline.
 
 ## Foundation architecture
 
@@ -28,7 +28,10 @@ normalization + provenance
 PostgreSQL canonical catalog
         |
         v
-API
+stable api.* read projections
+        |
+        v
+FastAPI service
         |
         v
 web, mobile, research, and archival clients
@@ -59,7 +62,6 @@ Important legacy assets currently include:
 - `cbs_rmt [02.15.02].xls`
 - `cbs_rmt [02.15.02].zip`
 - historical artwork and design assets
-- the original `api/swagger.json` API experiment
 
 The binary XLS workbook and ZIP archive are treated as primary archaeology sources and must be structurally inspected before their contents are mapped into production migrations.
 
@@ -67,17 +69,27 @@ The binary XLS workbook and ZIP archive are treated as primary archaeology sourc
 
 The modernization target is PostgreSQL.
 
-Initial schemas:
+Schemas currently include:
 
 - `catalog` — canonical CBSRMT entities;
 - `provenance` — sources, import batches, identifiers, and source assertions;
-- `staging` — temporary normalized import structures.
+- `staging` — temporary normalized import structures;
+- `governance` — migration history;
+- `api` — stable read projections consumed by the HTTP service.
 
-Initial migration:
+Migrations live under:
 
 ```text
-db/migrations/0001_foundation.sql
+db/migrations/
 ```
+
+Apply them with:
+
+```bash
+python tools/migrate.py
+```
+
+The migration runner records SHA-256 checksums and rejects drift in already-applied migration files.
 
 ## Data ingestion principles
 
@@ -102,6 +114,73 @@ raw source
 
 Conflicting historical claims are retained and surfaced rather than silently overwritten.
 
+The 1982 source can be validated and imported with:
+
+```bash
+python tools/import_1982.py --validate-only
+python tools/import_1982.py
+```
+
+## Reconciliation
+
+Catalog health can be inspected with:
+
+```bash
+python tools/reconcile.py
+```
+
+The reconciliation command reports canonical counts, identifier counts, import-batch state, disputed assertions, and orphan records.
+
+## API
+
+The authoritative contract is:
+
+```text
+api/openapi.yaml
+```
+
+The old user-centric Swagger experiment has been removed from the `foundation` branch.
+
+Current read-only endpoints:
+
+```text
+GET /health
+GET /episodes
+GET /episodes/{episodeId}
+GET /episodes/{episodeId}/broadcasts
+GET /broadcasts
+GET /broadcasts/{broadcastId}
+```
+
+The implementation lives in `app/main.py` and reads through `api.*` PostgreSQL projections instead of querying normalized catalog tables directly.
+
+Run locally with:
+
+```bash
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+`DATABASE_URL` must point to a migrated PostgreSQL database.
+
+## Tests and CI
+
+The foundation test pipeline:
+
+1. installs Python dependencies;
+2. runs the migration runner;
+3. reruns the migration runner to verify idempotency and checksum stability;
+4. validates the 1982 source;
+5. imports the source twice to verify import idempotency;
+6. runs Python parser and API integration tests;
+7. runs PostgreSQL reconciliation tests;
+8. emits a catalog reconciliation report.
+
+Run Python tests with:
+
+```bash
+pytest -q
+```
+
 ## Documentation
 
 Foundation documentation:
@@ -109,25 +188,6 @@ Foundation documentation:
 - `docs/data-archaeology.md` — current source inventory and verified domain conclusions;
 - `docs/domain-model.md` — normalized domain architecture;
 - `docs/import-1982-log.md` — deterministic import contract for the 1982 broadcast log.
-
-## API status
-
-The existing `api/swagger.json` is an early OpenAPI 3.0 experiment and is **not** the target contract for the rebuilt project.
-
-It will be replaced after the canonical data model and import behavior are established. The rebuilt API will be catalog-centric rather than user-centric.
-
-Expected resource families include:
-
-```text
-/episodes
-/broadcasts
-/people
-/credits
-/works
-/recordings
-/search
-/sources
-```
 
 ## Project rules
 
@@ -139,6 +199,8 @@ Expected resource families include:
 6. Make imports reproducible and idempotent.
 7. Surface source conflicts instead of silently resolving them.
 8. Keep API-facing identifiers stable and independent of source systems.
+9. Keep normalized catalog tables behind stable database/API boundaries.
+10. Treat `api/openapi.yaml` as the authoritative HTTP contract.
 
 ## License
 
