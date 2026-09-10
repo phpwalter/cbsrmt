@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -57,6 +58,18 @@ def load_report(path: Path) -> dict[str, Any]:
     return data
 
 
+def validate_approval_metadata(workbook: dict[str, Any]) -> None:
+    approved_by = workbook.get("approvedBy")
+    approved_at = workbook.get("approvedAt")
+    require(isinstance(approved_by, str) and approved_by.strip(), "APPROVED mapping requires workbook.approvedBy")
+    require(isinstance(approved_at, str) and approved_at.strip(), "APPROVED mapping requires workbook.approvedAt")
+    try:
+        parsed = datetime.fromisoformat(approved_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise MappingError("workbook.approvedAt must be ISO-8601") from exc
+    require(parsed.tzinfo is not None, "workbook.approvedAt must include a timezone offset")
+
+
 def validate(mapping: dict[str, Any], report: dict[str, Any], workbook_path: Path | None = None) -> None:
     require(str(mapping.get("schemaVersion")) == "1.0", "unsupported mapping schemaVersion")
     workbook = mapping.get("workbook")
@@ -65,6 +78,7 @@ def validate(mapping: dict[str, Any], report: dict[str, Any], workbook_path: Pat
     status = workbook.get("status")
     require(status in ALLOWED_MAPPING_STATUS, f"invalid workbook status: {status!r}")
     require(status == "APPROVED", "workbook mapping is not APPROVED")
+    validate_approval_metadata(workbook)
 
     expected_name = workbook.get("fileName")
     expected_sha = workbook.get("sha256")
