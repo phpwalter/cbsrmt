@@ -1,0 +1,28 @@
+schemaVersion: 1.0
+workbook:
+  fileName: cbs_rmt [02.15.02].xls
+  sha256: REVIEW_REQUIRED
+  inspectionReport: artifacts/workbook-inspection.json
+  status: REVIEW_REQUIRED
+
+sheets:
+  - sheetName: REVIEW_REQUIRED
+    headerRow: 1
+    status: REVIEW_REQUIRED
+    candidateEntity: null
+    keyColumns: []
+    columns: []
+
+# Canonical mapping is intentionally blocked while status is REVIEW_REQUIRED.
+# After inspection, each mapped column must identify its source header,
+# target entity/field, transformation, null policy, and provenance policy.
+#
+# Example reviewed mapping:
+#    columns:
+#      - sourceHeader: SHOW #
+#        target:
+#          entity: episode
+#          field: canonical_number
+#        transform: integer
+#        required: true
+#        provenance: preserve_raw_and_normalized
