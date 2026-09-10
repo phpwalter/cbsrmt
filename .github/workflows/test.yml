@@ -44,7 +44,11 @@ jobs:
         run: python -m pip install -r requirements.txt
 
       - name: Apply migrations
-        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/0001_foundation.sql
+        run: |
+          for migration in db/migrations/*.sql; do
+            echo "Applying $migration"
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+          done
 
       - name: Validate historical source
         run: python tools/import_1982.py --validate-only
@@ -55,30 +59,12 @@ jobs:
       - name: Re-import historical source
         run: python tools/import_1982.py
 
-      - name: Run tests
+      - name: Run Python tests
         run: pytest -q
 
-      - name: Reconcile canonical counts
+      - name: Run database reconciliation tests
         run: |
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
-          DO $$
-          DECLARE
-              episode_count integer;
-              broadcast_count integer;
-              batch_count integer;
-          BEGIN
-              SELECT count(*) INTO episode_count FROM catalog.episodes;
-              SELECT count(*) INTO broadcast_count FROM catalog.broadcasts;
-              SELECT count(*) INTO batch_count FROM provenance.import_batches;
-
-              IF episode_count <> 127 THEN
-                  RAISE EXCEPTION 'Expected 127 episodes, found %', episode_count;
-              END IF;
-              IF broadcast_count <> 127 THEN
-                  RAISE EXCEPTION 'Expected 127 broadcasts, found %', broadcast_count;
-              END IF;
-              IF batch_count <> 1 THEN
-                  RAISE EXCEPTION 'Expected one idempotent import batch, found %', batch_count;
-              END IF;
-          END $$;
-          SQL
+          for test_sql in db/tests/*.sql; do
+            echo "Running $test_sql"
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$test_sql"
+          done
