@@ -1,16 +1,23 @@
 from __future__ import annotations
 
+import json
+import logging
 import os
+import time
+from contextlib import asynccontextmanager
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
-import psycopg
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
-from psycopg.rows import dict_row
 
-DATABASE_URL = os.getenv("API_DATABASE_URL") or os.getenv("DATABASE_URL", "")
+from app.db import close_pool, db_connection, open_pool
+
 REQUIRED_DB_ROLE = os.getenv("CBSRMT_REQUIRED_DB_ROLE", "cbsrmt_api")
+SERVICE_NAME = "cbsrmt-api"
+logger = logging.getLogger(SERVICE_NAME)
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper(), format="%(message)s")
+
 PROBLEM_404 = {
     404: {
         "description": "Resource not found",
@@ -31,35 +38,86 @@ PROBLEM_404 = {
     }
 }
 
-app = FastAPI(
-    title="CBS Radio Mystery Theater Catalog API",
-    version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-)
 
-
-def db_connection():
-    if not DATABASE_URL:
-        raise RuntimeError("API_DATABASE_URL or DATABASE_URL is required")
-    return psycopg.connect(DATABASE_URL, row_factory=dict_row)
+def log_event(event: str, **fields: Any) -> None:
+    payload = {"event": event, "service": SERVICE_NAME, **fields}
+    logger.info(json.dumps(payload, default=str, separators=(",", ":")))
 
 
 def problem(status: int, title: str, detail: str) -> JSONResponse:
     return JSONResponse(
         status_code=status,
         media_type="application/problem+json",
-        content={
-            "type": "about:blank",
-            "title": title,
-            "status": status,
-            "detail": detail,
-        },
+        content={"type": "about:blank", "title": title, "status": status, "detail": detail},
     )
 
 
+def database_diagnostics() -> dict[str, Any]:
+    with db_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT * FROM api.runtime_access_check()")
+        row = cur.fetchone()
+    return dict(row)
+
+
+def assert_runtime_role() -> None:
+    diagnostics = database_diagnostics()
+    if not diagnostics["is_api_member"]:
+        raise RuntimeError(
+            f"Database login {diagnostics['login_role']!r} is not a member of {REQUIRED_DB_ROLE!r}"
+        )
+    if not diagnostics["can_read_api"]:
+        raise RuntimeError("Database login cannot read api.* projections")
+    if diagnostics["can_read_catalog_directly"]:
+        raise RuntimeError("Database login can read catalog tables directly")
+    if diagnostics["can_read_provenance_directly"]:
+        raise RuntimeError("Database login can read provenance tables directly")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    open_pool()
+    assert_runtime_role()
+    log_event("service_started")
+    try:
+        yield
+    finally:
+        close_pool()
+        log_event("service_stopped")
+
+
+app = FastAPI(
+    title="CBS Radio Mystery Theater Catalog API",
+    version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=lifespan,
+)
+
+
+@app.middleware("http")
+async def request_observability(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid4())
+    started = time.perf_counter()
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        response.headers["X-Request-ID"] = request_id
+        return response
+    finally:
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+        log_event(
+            "http_request",
+            request_id=request_id,
+            method=request.method,
+            path=request.url.path,
+            status=status_code,
+            duration_ms=elapsed_ms,
+        )
+
+
 @app.exception_handler(HTTPException)
-def http_exception_handler(_, exc: HTTPException):
+def http_exception_handler(_: Request, exc: HTTPException):
     return problem(exc.status_code, "Request failed", str(exc.detail))
 
 
@@ -94,39 +152,23 @@ def page(data: list[dict[str, Any]], total: int, limit: int, offset: int) -> dic
     return {"data": data, "meta": {"limit": limit, "offset": offset, "count": total}}
 
 
-def database_diagnostics() -> dict[str, Any]:
-    with db_connection() as conn, conn.cursor() as cur:
-        cur.execute("SELECT * FROM api.runtime_access_check()")
-        row = cur.fetchone()
-    return dict(row)
+@app.get("/live")
+def liveness() -> dict[str, str]:
+    return {"status": "ok"}
 
 
-def assert_runtime_role() -> None:
-    diagnostics = database_diagnostics()
-    if not diagnostics["is_api_member"]:
-        raise RuntimeError(
-            f"Database login {diagnostics['login_role']!r} is not a member of {REQUIRED_DB_ROLE!r}"
-        )
-    if not diagnostics["can_read_api"]:
-        raise RuntimeError("Database login cannot read api.* projections")
-    if diagnostics["can_read_catalog_directly"]:
-        raise RuntimeError("Database login can read catalog tables directly")
-    if diagnostics["can_read_provenance_directly"]:
-        raise RuntimeError("Database login can read provenance tables directly")
-
-
-@app.on_event("startup")
-def verify_runtime_database_role() -> None:
-    assert_runtime_role()
+@app.get("/ready")
+def readiness() -> dict[str, str]:
+    try:
+        assert_runtime_role()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Service not ready: {exc}") from exc
+    return {"status": "ok"}
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    try:
-        assert_runtime_role()
-    except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-    return {"status": "ok"}
+    return readiness()
 
 
 @app.get("/episodes")
