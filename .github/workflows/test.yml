@@ -43,12 +43,11 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
-      - name: Apply migrations
-        run: |
-          for migration in db/migrations/*.sql; do
-            echo "Applying $migration"
-            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
-          done
+      - name: Apply migrations through ledger
+        run: python tools/migrate.py
+
+      - name: Verify migration checksums
+        run: python tools/migrate.py
 
       - name: Validate historical source
         run: python tools/import_1982.py --validate-only
@@ -68,3 +67,6 @@ jobs:
             echo "Running $test_sql"
             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$test_sql"
           done
+
+      - name: Run reconciliation report
+        run: python tools/reconcile.py
