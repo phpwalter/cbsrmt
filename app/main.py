@@ -10,6 +10,25 @@ from fastapi.responses import JSONResponse
 from psycopg.rows import dict_row
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
+PROBLEM_404 = {
+    404: {
+        "description": "Resource not found",
+        "content": {
+            "application/problem+json": {
+                "schema": {
+                    "type": "object",
+                    "required": ["type", "title", "status"],
+                    "properties": {
+                        "type": {"type": "string"},
+                        "title": {"type": "string"},
+                        "status": {"type": "integer"},
+                        "detail": {"type": "string"},
+                    },
+                }
+            }
+        },
+    }
+}
 
 app = FastAPI(
     title="CBS Radio Mystery Theater Catalog API",
@@ -149,7 +168,7 @@ def list_episodes(
     return page(data, total, limit, offset)
 
 
-@app.get("/episodes/{episode_id}")
+@app.get("/episodes/{episode_id}", responses=PROBLEM_404)
 def get_episode(episode_id: UUID) -> dict[str, Any]:
     with db_connection() as conn, conn.cursor() as cur:
         cur.execute("SELECT * FROM api.episodes WHERE episode_id = %s", (episode_id,))
@@ -159,7 +178,7 @@ def get_episode(episode_id: UUID) -> dict[str, Any]:
         return serialize_episode(cur, row)
 
 
-@app.get("/episodes/{episode_id}/broadcasts")
+@app.get("/episodes/{episode_id}/broadcasts", responses=PROBLEM_404)
 def get_episode_broadcasts(
     episode_id: UUID,
     limit: int = Query(default=50, ge=1, le=200),
@@ -239,7 +258,7 @@ def list_broadcasts(
     return page(data, total, limit, offset)
 
 
-@app.get("/broadcasts/{broadcast_id}")
+@app.get("/broadcasts/{broadcast_id}", responses=PROBLEM_404)
 def get_broadcast(broadcast_id: UUID) -> dict[str, Any]:
     with db_connection() as conn, conn.cursor() as cur:
         cur.execute("SELECT * FROM api.broadcasts WHERE broadcast_id = %s", (broadcast_id,))
