@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from psycopg.rows import dict_row
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
+REQUIRED_DB_ROLE = os.getenv("CBSRMT_REQUIRED_DB_ROLE", "cbsrmt_api")
 PROBLEM_404 = {
     404: {
         "description": "Resource not found",
@@ -62,25 +63,7 @@ def http_exception_handler(_, exc: HTTPException):
     return problem(exc.status_code, "Request failed", str(exc.detail))
 
 
-def fetch_identifiers(cur, entity_type: str, entity_id: UUID | str) -> list[dict[str, str]]:
-    view = "api.episode_identifiers" if entity_type == "episode" else "api.broadcast_identifiers"
-    id_column = "episode_id" if entity_type == "episode" else "broadcast_id"
-    cur.execute(
-        f"""
-        SELECT namespace, identifier_value
-        FROM {view}
-        WHERE {id_column} = %s
-        ORDER BY namespace, identifier_value
-        """,
-        (entity_id,),
-    )
-    return [
-        {"namespace": row["namespace"], "value": row["identifier_value"]}
-        for row in cur.fetchall()
-    ]
-
-
-def serialize_episode(cur, row: dict[str, Any]) -> dict[str, Any]:
+def serialize_episode(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "episodeId": row["episode_id"],
         "canonicalNumber": row["canonical_number"],
@@ -91,11 +74,11 @@ def serialize_episode(cur, row: dict[str, Any]) -> dict[str, Any]:
         "durationSeconds": row["duration_seconds"],
         "seriesName": row["series_name"],
         "verificationStatus": row["verification_status"],
-        "identifiers": fetch_identifiers(cur, "episode", row["episode_id"]),
+        "identifiers": row["identifiers"],
     }
 
 
-def serialize_broadcast(cur, row: dict[str, Any]) -> dict[str, Any]:
+def serialize_broadcast(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "broadcastId": row["broadcast_id"],
         "episodeId": row["episode_id"],
@@ -103,7 +86,7 @@ def serialize_broadcast(cur, row: dict[str, Any]) -> dict[str, Any]:
         "broadcastDate": row["broadcast_date"],
         "broadcastType": row["broadcast_type"],
         "verificationStatus": row["verification_status"],
-        "identifiers": fetch_identifiers(cur, "broadcast", row["broadcast_id"]),
+        "identifiers": row["identifiers"],
     }
 
 
@@ -118,11 +101,35 @@ def page(data: list[dict[str, Any]], total: int, limit: int, offset: int) -> dic
     }
 
 
+def database_diagnostics() -> dict[str, str]:
+    with db_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT current_user AS current_user, current_database() AS current_database")
+        row = cur.fetchone()
+    return {
+        "role": row["current_user"],
+        "database": row["current_database"],
+    }
+
+
+def assert_runtime_role() -> None:
+    diagnostics = database_diagnostics()
+    if diagnostics["role"] != REQUIRED_DB_ROLE:
+        raise RuntimeError(
+            f"API must run as database role {REQUIRED_DB_ROLE!r}; "
+            f"connected as {diagnostics['role']!r}"
+        )
+
+
+@app.on_event("startup")
+def verify_runtime_database_role() -> None:
+    assert_runtime_role()
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
-    with db_connection() as conn, conn.cursor() as cur:
-        cur.execute("SELECT 1")
-        cur.fetchone()
+    diagnostics = database_diagnostics()
+    if diagnostics["role"] != REQUIRED_DB_ROLE:
+        raise HTTPException(status_code=503, detail="Database role boundary is not enforced")
     return {"status": "ok"}
 
 
@@ -163,7 +170,7 @@ def list_episodes(
             [*params, limit, offset],
         )
         rows = cur.fetchall()
-        data = [serialize_episode(cur, row) for row in rows]
+        data = [serialize_episode(row) for row in rows]
 
     return page(data, total, limit, offset)
 
@@ -175,7 +182,7 @@ def get_episode(episode_id: UUID) -> dict[str, Any]:
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Episode not found")
-        return serialize_episode(cur, row)
+        return serialize_episode(row)
 
 
 @app.get("/episodes/{episode_id}/broadcasts", responses=PROBLEM_404)
@@ -203,7 +210,7 @@ def get_episode_broadcasts(
             (episode_id, limit, offset),
         )
         rows = cur.fetchall()
-        data = [serialize_broadcast(cur, row) for row in rows]
+        data = [serialize_broadcast(row) for row in rows]
     return page(data, total, limit, offset)
 
 
@@ -253,7 +260,7 @@ def list_broadcasts(
             [*params, limit, offset],
         )
         rows = cur.fetchall()
-        data = [serialize_broadcast(cur, row) for row in rows]
+        data = [serialize_broadcast(row) for row in rows]
 
     return page(data, total, limit, offset)
 
@@ -265,4 +272,4 @@ def get_broadcast(broadcast_id: UUID) -> dict[str, Any]:
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Broadcast not found")
-        return serialize_broadcast(cur, row)
+        return serialize_broadcast(row)
