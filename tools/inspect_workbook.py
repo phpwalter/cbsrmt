@@ -131,6 +131,21 @@ def inspect_xlsx(path: Path) -> list[dict[str, Any]]:
     return reports
 
 
+def _xls_cell_value(cell: Any, datemode: int, xlrd_module: Any) -> Any:
+    if cell.ctype == xlrd_module.XL_CELL_EMPTY:
+        return None
+    if cell.ctype == xlrd_module.XL_CELL_DATE:
+        converted = xlrd_module.xldate_as_datetime(cell.value, datemode)
+        if converted.time().isoformat() == "00:00:00":
+            return converted.date()
+        return converted
+    if cell.ctype == xlrd_module.XL_CELL_BOOLEAN:
+        return bool(cell.value)
+    if cell.ctype == xlrd_module.XL_CELL_ERROR:
+        return f"#XLERROR:{int(cell.value)}"
+    return cell.value
+
+
 def inspect_xls(path: Path) -> list[dict[str, Any]]:
     try:
         import xlrd
@@ -140,8 +155,16 @@ def inspect_xls(path: Path) -> list[dict[str, Any]]:
     workbook = xlrd.open_workbook(path, formatting_info=False)
     reports = []
     for sheet in workbook.sheets():
-        rows = [sheet.row_values(i) for i in range(sheet.nrows)]
-        report = inspect_matrix(sheet.name, rows, hidden=False)
+        rows = [
+            [_xls_cell_value(sheet.cell(row_index, column_index), workbook.datemode, xlrd)
+             for column_index in range(sheet.ncols)]
+            for row_index in range(sheet.nrows)
+        ]
+        report = inspect_matrix(
+            sheet.name,
+            rows,
+            hidden=bool(getattr(sheet, "visibility", 0)),
+        )
         report["mergedRanges"] = []
         report["formulaCount"] = None
         reports.append(report)
