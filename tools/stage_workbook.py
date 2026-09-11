@@ -17,7 +17,7 @@ if __package__ in (None, ""):
 
 import yaml
 
-from tools.inspect_workbook import inspect, normalize_header
+from tools.inspect_workbook import _xls_cell_value, inspect, normalize_header
 
 IMPORTER_VERSION = "workbook-stager/0.1.0"
 SOURCE_TYPE = "legacy_workbook"
@@ -60,7 +60,15 @@ def read_xls(path: Path) -> list[tuple[str, bool, list[list[Any]]]]:
         raise RuntimeError("xlrd is required to stage .xls files") from exc
 
     workbook = xlrd.open_workbook(path, formatting_info=False)
-    return [(sheet.name, False, [sheet.row_values(i) for i in range(sheet.nrows)]) for sheet in workbook.sheets()]
+    result: list[tuple[str, bool, list[list[Any]]]] = []
+    for sheet in workbook.sheets():
+        rows = [
+            [_xls_cell_value(sheet.cell(row_index, column_index), workbook.datemode, xlrd)
+             for column_index in range(sheet.ncols)]
+            for row_index in range(sheet.nrows)
+        ]
+        result.append((sheet.name, bool(getattr(sheet, "visibility", 0)), rows))
+    return result
 
 
 def workbook_rows(path: Path):
