@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -27,6 +28,7 @@ ALLOWED_TRANSFORMS = {
     "normalize_name",
 }
 ALLOWED_PROVENANCE = {"preserve_raw", "preserve_raw_and_normalized"}
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 class MappingError(ValueError):
@@ -83,7 +85,10 @@ def validate(mapping: dict[str, Any], report: dict[str, Any], workbook_path: Pat
     expected_name = workbook.get("fileName")
     expected_sha = workbook.get("sha256")
     require(isinstance(expected_name, str) and expected_name.strip(), "workbook.fileName is required")
-    require(isinstance(expected_sha, str) and len(expected_sha) == 64, "workbook.sha256 must be a 64-character SHA-256")
+    require(
+        isinstance(expected_sha, str) and SHA256_RE.fullmatch(expected_sha) is not None,
+        "workbook.sha256 must be a lowercase 64-character hexadecimal SHA-256",
+    )
     require(report.get("fileName") == expected_name, "inspection report fileName does not match mapping")
     require(report.get("sha256") == expected_sha, "inspection report checksum does not match mapping")
 
