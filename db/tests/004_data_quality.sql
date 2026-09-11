@@ -5,10 +5,10 @@ DECLARE
     batch_id uuid;
     source_id uuid;
 BEGIN
-    SELECT import_batch_id, source_id
+    SELECT b.import_batch_id, b.source_id
       INTO batch_id, source_id
-      FROM provenance.import_batches
-     ORDER BY started_at
+      FROM provenance.import_batches AS b
+     ORDER BY b.started_at
      LIMIT 1;
 
     IF batch_id IS NULL THEN
