@@ -104,6 +104,44 @@ def test_checksum_drift_is_blocked(tmp_path: Path) -> None:
         validate(mapping, report, workbook)
 
 
+def test_non_hex_checksum_is_blocked(tmp_path: Path) -> None:
+    workbook = make_workbook(tmp_path)
+    report = report_for(workbook)
+    mapping = approved_mapping(workbook, tmp_path / "inspection.json")
+    bad_sha = "g" * 64
+    mapping["workbook"]["sha256"] = bad_sha
+    report["sha256"] = bad_sha
+    with pytest.raises(MappingError, match="hexadecimal SHA-256"):
+        validate(mapping, report)
+
+
+def test_missing_approved_by_is_blocked(tmp_path: Path) -> None:
+    workbook = make_workbook(tmp_path)
+    report = report_for(workbook)
+    mapping = approved_mapping(workbook, tmp_path / "inspection.json")
+    mapping["workbook"].pop("approvedBy")
+    with pytest.raises(MappingError, match="approvedBy"):
+        validate(mapping, report, workbook)
+
+
+def test_malformed_approved_at_is_blocked(tmp_path: Path) -> None:
+    workbook = make_workbook(tmp_path)
+    report = report_for(workbook)
+    mapping = approved_mapping(workbook, tmp_path / "inspection.json")
+    mapping["workbook"]["approvedAt"] = "not-a-date"
+    with pytest.raises(MappingError, match="ISO-8601"):
+        validate(mapping, report, workbook)
+
+
+def test_approved_at_without_timezone_is_blocked(tmp_path: Path) -> None:
+    workbook = make_workbook(tmp_path)
+    report = report_for(workbook)
+    mapping = approved_mapping(workbook, tmp_path / "inspection.json")
+    mapping["workbook"]["approvedAt"] = "2026-09-10T18:00:00"
+    with pytest.raises(MappingError, match="timezone offset"):
+        validate(mapping, report, workbook)
+
+
 def test_unknown_header_is_blocked(tmp_path: Path) -> None:
     workbook = make_workbook(tmp_path)
     report = report_for(workbook)
