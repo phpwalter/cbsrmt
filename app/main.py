@@ -192,7 +192,7 @@ def health() -> dict[str, str]:
 
 @app.get("/episodes")
 def list_episodes(
-    year: int | None = Query(default=None, ge=1974, le=1998),
+    year: int | None = Query(default=None, ge=1974),
     title: str | None = None,
     show_number: int | None = Query(default=None, alias="showNumber", ge=1),
     limit: int = Query(default=50, ge=1, le=200),
@@ -253,7 +253,7 @@ def get_episode_broadcasts(
 
 @app.get("/broadcasts")
 def list_broadcasts(
-    year: int | None = Query(default=None, ge=1974, le=1998),
+    year: int | None = Query(default=None, ge=1974),
     broadcast_type: str | None = Query(default=None, alias="type", pattern="^(original|rerun|unknown)$"),
     otrw_number: int | None = Query(default=None, alias="otrwNumber", ge=1),
     limit: int = Query(default=50, ge=1, le=200),
