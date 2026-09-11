@@ -17,12 +17,32 @@ DB_LOCK_TIMEOUT_MS = int(os.getenv("CBSRMT_DB_LOCK_TIMEOUT_MS", "2000"))
 _pool: ConnectionPool | None = None
 
 
+def _validate_timeout(name: str, value: int) -> None:
+    if value < 0:
+        raise RuntimeError(f"{name} must be greater than or equal to zero")
+
+
+def _configure_connection(conn) -> None:
+    """Apply deterministic session settings when a pooled connection is created."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT set_config('statement_timeout', %s, false)",
+            (f"{DB_STATEMENT_TIMEOUT_MS}ms",),
+        )
+        cur.execute(
+            "SELECT set_config('lock_timeout', %s, false)",
+            (f"{DB_LOCK_TIMEOUT_MS}ms",),
+        )
+
+
 def open_pool() -> None:
     global _pool
     if not API_DATABASE_URL:
         raise RuntimeError("API_DATABASE_URL or DATABASE_URL is required")
     if DB_POOL_MIN_SIZE < 0 or DB_POOL_MAX_SIZE < 1 or DB_POOL_MIN_SIZE > DB_POOL_MAX_SIZE:
         raise RuntimeError("invalid PostgreSQL pool size configuration")
+    _validate_timeout("CBSRMT_DB_STATEMENT_TIMEOUT_MS", DB_STATEMENT_TIMEOUT_MS)
+    _validate_timeout("CBSRMT_DB_LOCK_TIMEOUT_MS", DB_LOCK_TIMEOUT_MS)
     if _pool is not None:
         return
 
@@ -32,6 +52,7 @@ def open_pool() -> None:
         max_size=DB_POOL_MAX_SIZE,
         timeout=DB_POOL_TIMEOUT_SECONDS,
         kwargs={"row_factory": dict_row, "autocommit": True},
+        configure=_configure_connection,
         open=True,
     )
     _pool.wait(timeout=DB_POOL_TIMEOUT_SECONDS)
@@ -53,7 +74,4 @@ def pool() -> ConnectionPool:
 @contextmanager
 def db_connection() -> Iterator:
     with pool().connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SET statement_timeout = %s", (DB_STATEMENT_TIMEOUT_MS,))
-            cur.execute("SET lock_timeout = %s", (DB_LOCK_TIMEOUT_MS,))
         yield conn
