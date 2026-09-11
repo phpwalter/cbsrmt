@@ -12,6 +12,9 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 import yaml
 
 from tools.inspect_workbook import inspect, normalize_header
@@ -83,7 +86,7 @@ def ensure_source(cur, path: Path) -> str:
     return cur.fetchone()[0]
 
 
-def ensure_batch(cur, source_id: str, file_checksum: str) -> str:
+def ensure_batch(cur, source_id: str, file_checksum: str) -> tuple[str, str]:
     cur.execute(
         """
         INSERT INTO provenance.import_batches
@@ -91,11 +94,12 @@ def ensure_batch(cur, source_id: str, file_checksum: str) -> str:
         VALUES (%s::uuid, %s, %s, 'running')
         ON CONFLICT (source_id, source_checksum, importer_version)
         DO UPDATE SET source_checksum = EXCLUDED.source_checksum
-        RETURNING import_batch_id::text
+        RETURNING import_batch_id::text, status
         """,
         (source_id, file_checksum, IMPORTER_VERSION),
     )
-    return cur.fetchone()[0]
+    row = cur.fetchone()
+    return row[0], row[1]
 
 
 def load_mapping(path: Path | None) -> dict[str, Any] | None:
@@ -112,6 +116,34 @@ def assert_mapping_allows_canonicalization(mapping: dict[str, Any] | None) -> No
         raise RuntimeError(f"canonicalization blocked: workbook mapping status is {status!r}")
 
 
+def existing_stage_summary(cur, batch_id: str, file_checksum: str) -> dict[str, Any] | None:
+    cur.execute(
+        """
+        SELECT w.workbook_id::text,
+               count(DISTINCT s.workbook_sheet_id) AS sheet_count,
+               count(DISTINCT r.workbook_row_id) AS row_count,
+               count(c.workbook_cell_id) AS cell_count
+        FROM staging.workbooks w
+        LEFT JOIN staging.workbook_sheets s ON s.workbook_id = w.workbook_id
+        LEFT JOIN staging.workbook_rows r ON r.workbook_sheet_id = s.workbook_sheet_id
+        LEFT JOIN staging.workbook_cells c ON c.workbook_row_id = r.workbook_row_id
+        WHERE w.import_batch_id = %s::uuid
+          AND w.file_checksum = %s
+        GROUP BY w.workbook_id
+        """,
+        (batch_id, file_checksum),
+    )
+    row = cur.fetchone()
+    if row is None:
+        return None
+    return {
+        "workbookId": row[0],
+        "sheetCount": int(row[1]),
+        "rowCount": int(row[2]),
+        "cellCount": int(row[3]),
+    }
+
+
 def stage(database_url: str, workbook_path: Path, mapping_path: Path | None = None) -> dict[str, Any]:
     import psycopg
 
@@ -123,25 +155,38 @@ def stage(database_url: str, workbook_path: Path, mapping_path: Path | None = No
     with psycopg.connect(database_url) as conn:
         with conn.cursor() as cur:
             source_id = ensure_source(cur, workbook_path)
-            batch_id = ensure_batch(cur, source_id, file_checksum)
+            batch_id, batch_status = ensure_batch(cur, source_id, file_checksum)
+
+            existing = existing_stage_summary(cur, batch_id, file_checksum)
+            if existing is not None:
+                if batch_status != "completed":
+                    raise RuntimeError(
+                        "staging evidence already exists for this workbook checksum but the import batch is not completed"
+                    )
+                conn.rollback()
+                return {
+                    **existing,
+                    "importBatchId": batch_id,
+                    "mappingStatus": (mapping or {}).get("workbook", {}).get("status", "UNMAPPED"),
+                    "canonicalization": "BLOCKED",
+                    "stagingStatus": "UNCHANGED",
+                }
+
+            if batch_status == "completed":
+                raise RuntimeError(
+                    "completed workbook staging batch exists without staging evidence; refusing to recreate immutable evidence"
+                )
 
             cur.execute(
                 """
                 INSERT INTO staging.workbooks
                     (import_batch_id, source_id, file_name, file_checksum, workbook_format, sheet_count)
                 VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s)
-                ON CONFLICT (import_batch_id, file_checksum)
-                DO UPDATE SET sheet_count = EXCLUDED.sheet_count
                 RETURNING workbook_id::text
                 """,
                 (batch_id, source_id, workbook_path.name, file_checksum, report["fileFormat"], len(sheets)),
             )
             workbook_id = cur.fetchone()[0]
-
-            cur.execute(
-                "DELETE FROM staging.workbook_sheets WHERE workbook_id = %s::uuid",
-                (workbook_id,),
-            )
 
             row_total = 0
             cell_total = 0
@@ -222,6 +267,7 @@ def stage(database_url: str, workbook_path: Path, mapping_path: Path | None = No
         "cellCount": cell_total,
         "mappingStatus": (mapping or {}).get("workbook", {}).get("status", "UNMAPPED"),
         "canonicalization": "BLOCKED",
+        "stagingStatus": "CREATED",
     }
 
 
