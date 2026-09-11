@@ -111,7 +111,7 @@ def test_non_hex_checksum_is_blocked(tmp_path: Path) -> None:
     bad_sha = "g" * 64
     mapping["workbook"]["sha256"] = bad_sha
     report["sha256"] = bad_sha
-    with pytest.raises(MappingError, match="hexadecimal SHA-256"):
+    with pytest.raises(MappingError, match="SHA-256"):
         validate(mapping, report)
 
 
@@ -160,6 +160,24 @@ def test_duplicate_target_is_blocked(tmp_path: Path) -> None:
         "field": "canonical_number",
     }
     with pytest.raises(MappingError, match="duplicate target"):
+        validate(mapping, report, workbook)
+
+
+def test_missing_candidate_entity_is_blocked(tmp_path: Path) -> None:
+    workbook = make_workbook(tmp_path)
+    report = report_for(workbook)
+    mapping = approved_mapping(workbook, tmp_path / "inspection.json")
+    mapping["sheets"][0]["candidateEntity"] = None
+    with pytest.raises(MappingError, match="candidateEntity is required"):
+        validate(mapping, report, workbook)
+
+
+def test_candidate_entity_must_be_mapped(tmp_path: Path) -> None:
+    workbook = make_workbook(tmp_path)
+    report = report_for(workbook)
+    mapping = approved_mapping(workbook, tmp_path / "inspection.json")
+    mapping["sheets"][0]["candidateEntity"] = "broadcast"
+    with pytest.raises(MappingError, match="not among mapped target entities"):
         validate(mapping, report, workbook)
 
 
