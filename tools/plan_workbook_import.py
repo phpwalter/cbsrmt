@@ -25,19 +25,20 @@ from tools.workbook_transforms import apply_transform
 def load_staged_rows(cur, workbook_sha: str, sheet_name: str) -> list[dict[str, Any]]:
     cur.execute(
         """
-        SELECT r.row_id::text, r.row_number,
-               jsonb_object_agg(c.header_value, c.raw_value ORDER BY c.column_number)
-                   FILTER (WHERE c.header_value IS NOT NULL) AS values,
-               jsonb_object_agg(c.header_value, c.cell_address ORDER BY c.column_number)
-                   FILTER (WHERE c.header_value IS NOT NULL) AS cells
+        SELECT r.workbook_row_id::text AS row_id,
+               r.row_number,
+               jsonb_object_agg(c.header_name, c.raw_value ORDER BY c.column_number)
+                   FILTER (WHERE c.header_name IS NOT NULL) AS values,
+               jsonb_object_agg(c.header_name, c.cell_address ORDER BY c.column_number)
+                   FILTER (WHERE c.header_name IS NOT NULL) AS cells
         FROM staging.workbooks w
         JOIN staging.workbook_sheets s ON s.workbook_id = w.workbook_id
-        JOIN staging.workbook_rows r ON r.sheet_id = s.sheet_id
-        LEFT JOIN staging.workbook_cells c ON c.row_id = r.row_id
-        WHERE w.sha256 = %s
+        JOIN staging.workbook_rows r ON r.workbook_sheet_id = s.workbook_sheet_id
+        LEFT JOIN staging.workbook_cells c ON c.workbook_row_id = r.workbook_row_id
+        WHERE w.file_checksum = %s
           AND s.sheet_name = %s
-          AND r.row_number > s.header_row
-        GROUP BY r.row_id, r.row_number
+          AND (s.header_row IS NULL OR r.row_number > s.header_row)
+        GROUP BY r.workbook_row_id, r.row_number
         ORDER BY r.row_number
         """,
         (workbook_sha, sheet_name),
