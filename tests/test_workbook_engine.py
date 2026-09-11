@@ -3,7 +3,8 @@ from decimal import Decimal
 
 import pytest
 
-from tools.workbook_handlers import HandlerError, get_handler
+from tools.import_workbook import mapped_entities
+from tools.workbook_handlers import HandlerError, get_handler, require_enabled_handlers
 from tools.workbook_transforms import TransformError, apply_transform
 
 
@@ -59,3 +60,34 @@ def test_known_handler_is_registered_but_disabled():
 def test_unknown_handler_fails_closed():
     with pytest.raises(HandlerError, match="unsupported canonical entity"):
         get_handler("mystery_entity")
+
+
+def test_handler_preflight_rejects_disabled_handlers_before_execution():
+    with pytest.raises(HandlerError, match="not enabled"):
+        require_enabled_handlers({"episode", "broadcast"})
+
+
+def test_handler_preflight_rejects_unknown_handlers():
+    with pytest.raises(HandlerError, match="unsupported canonical entity handler"):
+        require_enabled_handlers({"mystery_entity"})
+
+
+def test_mapped_entities_only_uses_approved_sheets():
+    mapping = {
+        "sheets": [
+            {
+                "status": "APPROVED",
+                "columns": [
+                    {"target": {"entity": "episode", "field": "title"}},
+                    {"target": {"entity": "broadcast", "field": "broadcast_date"}},
+                ],
+            },
+            {
+                "status": "REVIEW_REQUIRED",
+                "columns": [
+                    {"target": {"entity": "person", "field": "display_name"}},
+                ],
+            },
+        ]
+    }
+    assert mapped_entities(mapping) == {"episode", "broadcast"}
