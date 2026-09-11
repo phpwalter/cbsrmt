@@ -1,0 +1,62 @@
+{
+  "manifest_version": 1,
+  "description": "Authoritative inventory of source artifacts used by the CBS RMT normalization pipeline.",
+  "artifacts": [
+    {
+      "path": "data/episodes.json",
+      "artifact_type": "json",
+      "role": "primary_catalog",
+      "mutable": false,
+      "notes": "Legacy episode catalog containing episode number, date, title, plot, writer text, original-writer text, and genre identifier."
+    },
+    {
+      "path": "data/cast.json",
+      "artifact_type": "json",
+      "role": "person_catalog",
+      "mutable": false,
+      "notes": "Legacy cast/person catalog. Biographical dates require validation because some records contain implausible values."
+    },
+    {
+      "path": "data/writers.json",
+      "artifact_type": "json",
+      "role": "writer_catalog",
+      "mutable": false,
+      "notes": "Legacy writer subset using the same person-shaped structure as the cast catalog."
+    },
+    {
+      "path": "data/genre.json",
+      "artifact_type": "json",
+      "role": "genre_catalog",
+      "mutable": false,
+      "notes": "Legacy genre lookup. Source spelling is preserved; canonical spelling corrections are transformations, not source edits."
+    },
+    {
+      "path": "CBSRMT_Log_1982.txt",
+      "artifact_type": "text",
+      "role": "historical_reference",
+      "mutable": false,
+      "notes": "Historical program log used as corroborating source material."
+    },
+    {
+      "path": "cbs_rmt [02.15.02].xls",
+      "artifact_type": "xls",
+      "role": "historical_reference",
+      "mutable": false,
+      "notes": "Historical spreadsheet source. Binary input is fingerprinted but never rewritten by normalization tooling."
+    },
+    {
+      "path": "sql/cbs.sql",
+      "artifact_type": "sql",
+      "role": "legacy_database_export",
+      "mutable": false,
+      "notes": "Legacy MySQL database export used for reconciliation and provenance, not as the canonical physical schema."
+    },
+    {
+      "path": "sql/cbs.mwb",
+      "artifact_type": "mysql_workbench",
+      "role": "legacy_schema_reference",
+      "mutable": false,
+      "notes": "Legacy MySQL Workbench model retained as architecture evidence."
+    }
+  ]
+}
