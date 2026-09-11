@@ -22,22 +22,34 @@ if __package__ in (None, ""):
 import psycopg
 from psycopg.rows import dict_row
 
-from tools.plan_workbook_import import load_staged_rows, transform_row
+from tools.plan_workbook_import import build_plan, load_staged_rows, transform_row
 from tools.quality import QualityIssue, quarantine_record, record_issue
 from tools.validate_workbook_mapping import load_report, load_yaml, validate
 from tools.workbook_gate import evaluate_gate
-from tools.workbook_handlers import HandlerContext, get_handler
+from tools.workbook_handlers import HandlerContext, get_handler, require_enabled_handlers
 
 
 def resolve_workbook_id(cur, checksum: str) -> str:
     cur.execute(
-        "SELECT workbook_id::text FROM staging.workbooks WHERE sha256 = %s",
+        "SELECT workbook_id::text FROM staging.workbooks WHERE file_checksum = %s",
         (checksum,),
     )
-    row = cur.fetchone()
-    if row is None:
+    rows = cur.fetchall()
+    if not rows:
         raise RuntimeError("approved workbook has not been staged")
-    return row["workbook_id"]
+    if len(rows) > 1:
+        raise RuntimeError("multiple staged workbooks share the approved checksum")
+    return rows[0]["workbook_id"]
+
+
+def mapped_entities(mapping: dict[str, Any]) -> set[str]:
+    entities: set[str] = set()
+    for sheet in mapping["sheets"]:
+        if sheet.get("status") != "APPROVED":
+            continue
+        for column in sheet["columns"]:
+            entities.add(column["target"]["entity"])
+    return entities
 
 
 def execute_import(
@@ -55,8 +67,13 @@ def execute_import(
     if not gate["eligible"]:
         raise RuntimeError("canonicalization gate did not pass")
 
+    if dry_run:
+        return build_plan(database_url, mapping_path, inspection_path)
+
+    require_enabled_handlers(mapped_entities(mapping))
+
     result = {
-        "mode": "DRY_RUN" if dry_run else "EXECUTE",
+        "mode": "EXECUTE",
         "workbook": mapping["workbook"]["fileName"],
         "sha256": mapping["workbook"]["sha256"],
         "acceptedRows": 0,
@@ -71,8 +88,8 @@ def execute_import(
             """
             SELECT source_id::text
             FROM provenance.sources
-            WHERE source_type = 'workbook'
-              AND uri = %s
+            WHERE source_type = 'legacy_workbook'
+              AND name = %s
             ORDER BY created_at DESC
             LIMIT 1
             """,
@@ -89,17 +106,18 @@ def execute_import(
                 (source_id, source_checksum, importer_version, status)
             VALUES (%s::uuid, %s, 'workbook-1.0', 'running')
             ON CONFLICT (source_id, source_checksum, importer_version)
-            DO UPDATE SET source_checksum = EXCLUDED.source_checksum
-            RETURNING import_batch_id::text
+            DO UPDATE SET status = CASE
+                    WHEN provenance.import_batches.status = 'completed' THEN provenance.import_batches.status
+                    ELSE 'running'
+                END
+            RETURNING import_batch_id::text, status
             """,
             (source_id, mapping["workbook"]["sha256"]),
         )
-        import_batch_id = cur.fetchone()["import_batch_id"]
-
-        if dry_run:
-            conn.rollback()
-            result["canonicalWritesPerformed"] = False
-            return result
+        batch_row = cur.fetchone()
+        import_batch_id = batch_row["import_batch_id"]
+        if batch_row["status"] == "completed":
+            raise RuntimeError("this workbook checksum has already completed canonical import with workbook-1.0")
 
         for sheet in mapping["sheets"]:
             if sheet.get("status") != "APPROVED":
@@ -194,7 +212,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print(json.dumps(result, indent=2, default=str))
-    return 1 if result["rejectedRows"] else 0
+    rejected = result.get("rejectedRows", result.get("blockedCount", 0))
+    return 1 if rejected else 0
 
 
 if __name__ == "__main__":
