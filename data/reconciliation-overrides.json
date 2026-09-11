@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "description": "Version-controlled human-reviewed reconciliation decisions. Empty by default; raw source files must never be edited to encode normalization decisions.",
+  "person_aliases": [],
+  "person_merges": [],
+  "person_field_overrides": [],
+  "episode_writer_mappings": [],
+  "genre_name_overrides": [
+    {
+      "legacy_genre_id": "0",
+      "source_value": "Unkown",
+      "canonical_value": "Unknown",
+      "reason": "Unambiguous spelling correction while preserving source spelling in provenance."
+    }
+  ],
+  "biographical_date_overrides": []
+}
