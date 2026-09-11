@@ -16,6 +16,7 @@ STEPS = [
     [sys.executable, str(ROOT / "scripts" / "normalize_episodes.py")],
     [sys.executable, str(ROOT / "scripts" / "validate_people.py")],
     [sys.executable, str(ROOT / "scripts" / "resolve_episode_relationships.py")],
+    [sys.executable, str(ROOT / "scripts" / "extract_cast_credits.py")],
 ]
 
 
