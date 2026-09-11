@@ -85,10 +85,7 @@ def validate(mapping: dict[str, Any], report: dict[str, Any], workbook_path: Pat
     expected_name = workbook.get("fileName")
     expected_sha = workbook.get("sha256")
     require(isinstance(expected_name, str) and expected_name.strip(), "workbook.fileName is required")
-    require(
-        isinstance(expected_sha, str) and SHA256_RE.fullmatch(expected_sha) is not None,
-        "workbook.sha256 must be a lowercase 64-character hexadecimal SHA-256",
-    )
+    require(isinstance(expected_sha, str) and SHA256_RE.fullmatch(expected_sha) is not None, "workbook.sha256 must be a lowercase 64-character SHA-256")
     require(report.get("fileName") == expected_name, "inspection report fileName does not match mapping")
     require(report.get("sha256") == expected_sha, "inspection report checksum does not match mapping")
 
@@ -113,6 +110,12 @@ def validate(mapping: dict[str, Any], report: dict[str, Any], workbook_path: Pat
         approved_sheet_count += 1
         require(isinstance(sheet.get("headerRow"), int) and sheet["headerRow"] > 0, f"{sheet_name}: headerRow must be positive")
 
+        candidate_entity = sheet.get("candidateEntity")
+        require(
+            isinstance(candidate_entity, str) and candidate_entity.strip(),
+            f"{sheet_name}: candidateEntity is required for an APPROVED sheet",
+        )
+
         report_headers = set(report_sheets[sheet_name].get("headers", []))
         key_columns = sheet.get("keyColumns", [])
         require(isinstance(key_columns, list), f"{sheet_name}: keyColumns must be a list")
@@ -123,6 +126,7 @@ def validate(mapping: dict[str, Any], report: dict[str, Any], workbook_path: Pat
         require(isinstance(columns, list) and columns, f"{sheet_name}: approved sheet must map at least one column")
         seen_sources: set[str] = set()
         seen_targets: set[tuple[str, str]] = set()
+        mapped_entities: set[str] = set()
 
         for column in columns:
             require(isinstance(column, dict), f"{sheet_name}: column mapping must be an object")
@@ -137,6 +141,7 @@ def validate(mapping: dict[str, Any], report: dict[str, Any], workbook_path: Pat
             field = target.get("field")
             require(isinstance(entity, str) and entity.strip(), f"{sheet_name}/{source_header}: target.entity is required")
             require(isinstance(field, str) and field.strip(), f"{sheet_name}/{source_header}: target.field is required")
+            mapped_entities.add(entity)
             target_key = (entity, field)
             require(target_key not in seen_targets, f"{sheet_name}: duplicate target mapping {entity}.{field}")
             seen_targets.add(target_key)
@@ -146,6 +151,11 @@ def validate(mapping: dict[str, Any], report: dict[str, Any], workbook_path: Pat
             provenance = column.get("provenance")
             require(provenance in ALLOWED_PROVENANCE, f"{sheet_name}/{source_header}: invalid provenance policy")
             require(isinstance(column.get("required", False), bool), f"{sheet_name}/{source_header}: required must be boolean")
+
+        require(
+            candidate_entity in mapped_entities,
+            f"{sheet_name}: candidateEntity {candidate_entity!r} is not among mapped target entities",
+        )
 
     require(approved_sheet_count > 0, "APPROVED workbook must contain at least one APPROVED sheet")
 
