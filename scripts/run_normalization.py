@@ -11,6 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 STEPS = [
     [sys.executable, str(ROOT / "scripts" / "build_source_manifest.py")],
+    [sys.executable, str(ROOT / "scripts" / "inventory_legacy_sql.py")],
+    [sys.executable, str(ROOT / "scripts" / "classify_legacy_sql.py")],
     [sys.executable, str(ROOT / "scripts" / "normalize_genres.py")],
     [sys.executable, str(ROOT / "scripts" / "normalize_people.py")],
     [sys.executable, str(ROOT / "scripts" / "normalize_episodes.py")],
