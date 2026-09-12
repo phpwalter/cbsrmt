@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "description": "Governed classification map for tables discovered in sql/cbs.sql. Entries may be extended after inventory review; unknown tables default to review_required.",
+  "default_classification": "review_required",
+  "classifications": {
+    "appear": {
+      "classification": "relationship_source",
+      "canonical_target": "cast_credits",
+      "authority": "primary_for_relationship",
+      "notes": "Episode-to-cast relationship table. episode_id and cast_id are identity-bearing; copied episode title/date fields are corroborating only."
+    },
+    "episode": {
+      "classification": "catalog_source",
+      "canonical_target": "episodes",
+      "authority": "corroborating",
+      "notes": "Legacy episode table, when present, is compared against data/episodes.json and used to identify fields missing from the JSON export."
+    },
+    "cast": {
+      "classification": "catalog_source",
+      "canonical_target": "people",
+      "authority": "corroborating",
+      "notes": "Legacy cast/person table, when present, is compared against data/cast.json."
+    },
+    "writer": {
+      "classification": "catalog_source",
+      "canonical_target": "people",
+      "authority": "corroborating",
+      "notes": "Legacy writer table, when present, is compared against data/writers.json."
+    },
+    "writers": {
+      "classification": "catalog_source",
+      "canonical_target": "people",
+      "authority": "corroborating",
+      "notes": "Alternative writer table naming retained for discovery."
+    },
+    "genre": {
+      "classification": "lookup_source",
+      "canonical_target": "genres",
+      "authority": "corroborating",
+      "notes": "Legacy genre lookup compared with data/genre.json."
+    },
+    "genres": {
+      "classification": "lookup_source",
+      "canonical_target": "genres",
+      "authority": "corroborating",
+      "notes": "Alternative genre table naming retained for discovery."
+    },
+    "user": {
+      "classification": "administrative",
+      "canonical_target": null,
+      "authority": "none",
+      "notes": "Legacy application-user data is outside the historical CBS RMT catalog domain and is not migrated by default."
+    },
+    "users": {
+      "classification": "administrative",
+      "canonical_target": null,
+      "authority": "none",
+      "notes": "Legacy application-user data is outside the historical CBS RMT catalog domain and is not migrated by default."
+    }
+  }
+}
